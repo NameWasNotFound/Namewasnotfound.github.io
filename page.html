@@ -2,7 +2,7 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>IPSC Results</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -11,8 +11,8 @@
     --accent: #ff4d00; --accent2: #ffd100; --text: #e8eaf0;
     --muted: #5a6070; --green: #00e676;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 
   header {
     position: relative; background: var(--surface);
@@ -65,13 +65,13 @@
   .search-wrap input {
     width: 100%; background: var(--surface); border: 1px solid var(--border);
     border-radius: 4px; color: var(--text); font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 0.93rem; padding: 11px 14px 11px 40px; outline: none; transition: border-color 0.2s;
+    font-size: 1rem; padding: 11px 14px 11px 40px; outline: none; transition: border-color 0.2s;
   }
   .search-wrap input:focus { border-color: var(--accent); }
   .si { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
   .sport-sel {
     background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; padding: 11px 14px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 1rem; padding: 11px 14px;
     border-radius: 4px; outline: none; cursor: pointer; min-width: 180px;
   }
   .sport-sel:focus { border-color: var(--accent); }
@@ -115,8 +115,50 @@
   .filter-bar { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; background: var(--surface); padding: 20px; border: 1px solid var(--border); border-radius: 4px; }
   .fg { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 190px; }
   .fg label { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--accent2); letter-spacing: 1px; text-transform: uppercase; }
-  .fg select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 3px; font-size: 0.93rem; outline: none; width: 100%; cursor: pointer; }
+  .fg select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 3px; font-size: 1rem; outline: none; width: 100%; cursor: pointer; }
   .fg select:focus { border-color: var(--accent); }
+  .pcc-toggle {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 3px; padding: 10px 16px; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); letter-spacing: 1px; user-select: none;
+    transition: border-color 0.15s, color 0.15s; align-self: flex-end;
+  }
+  .pcc-toggle:hover { border-color: var(--accent2); color: var(--text); }
+  .pcc-toggle.active { border-color: var(--accent); color: var(--accent); }
+  .pcc-toggle .tog-dot {
+    width: 28px; height: 16px; border-radius: 8px; background: var(--border);
+    position: relative; transition: background 0.2s; flex-shrink: 0;
+  }
+  .pcc-toggle.active .tog-dot { background: var(--accent); }
+  .pcc-toggle .tog-dot::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 12px; height: 12px; border-radius: 50%; background: var(--muted);
+    transition: left 0.2s, background 0.2s;
+  }
+  .pcc-toggle.active .tog-dot::after { left: 14px; background: #fff; }
+  .rm-btn {
+    width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); font-size: 0.9rem; line-height: 1;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .rm-btn:hover { background: rgba(255,77,0,0.15); border-color: var(--accent); color: var(--accent); }
+  #restoreBar {
+    display: none; background: rgba(255,77,0,0.08); border: 1px solid var(--accent);
+    border-radius: 3px; padding: 10px 16px; margin-bottom: 14px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted);
+    align-items: center; gap: 12px;
+  }
+  #restoreBar.on { display: flex; }
+  #restoreBar b { color: var(--accent); }
+  .restore-btn {
+    background: transparent; border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 3px; padding: 5px 14px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem; cursor: pointer; letter-spacing: 1px; transition: all 0.15s; margin-left: auto;
+  }
+  .restore-btn:hover { background: var(--accent); color: #000; }
   .div-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 2px; color: var(--accent2); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
   .div-name .cnt { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--muted); background: rgba(255,255,255,0.04); padding: 3px 8px; border-radius: 3px; font-weight: 400; }
   .rtable { width: 100%; border-collapse: collapse; margin-bottom: 40px; font-size: 0.85rem; }
@@ -130,6 +172,7 @@
   tr:nth-child(1) .rank { color: #ffd700; }
   tr:nth-child(2) .rank { color: #c0c0c0; }
   tr:nth-child(3) .rank { color: #cd7f32; }
+  .mob-pts { display: none; }
   .pct-cell { min-width: 130px; }
   .pbw { display: flex; align-items: center; gap: 8px; }
   .pb { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
@@ -194,57 +237,143 @@
   .winner-cell { color: var(--accent2); font-weight: bold; }
   /* --- MOBILANPASSNING (RESPONSIVE DESIGN) --- */
   @media (max-width: 768px) {
-    /* Header och Filter */
-    header { padding: 16px 16px 0; }
-    h1 { font-size: 2.2rem; }
-    .tb { 
-      flex-direction: column; 
-      align-items: stretch; 
-      gap: 12px; 
-      margin-top: 16px; 
-      padding-bottom: 16px;
-    }
-    .s-box, .s-box input, .s-box select { width: 100%; }
-    
-    /* Huvudtabellen (Resultaten) */
-    #tv { padding: 16px 10px; }
-    .rtable { 
-      display: block; 
-      overflow-x: auto; 
-      white-space: nowrap; /* Tvingar tabellen att scrolla horisontellt istället för att krascha */
-    }
-    .rtable th, .rtable td { padding: 10px 8px; font-size: 0.85rem; }
-    .sname { font-size: 0.9rem; }
-    .pct-cell { min-width: 100px; }
-    .pbw { width: 100%; }
+    /* Header */
+    header { padding: 14px 16px 0; }
+    h1 { font-size: 2rem; }
+    .subtitle { font-size: 0.6rem; margin-bottom: 14px; }
+    .logo-row { gap: 8px; }
+    .tab { font-size: 0.85rem; padding: 10px 16px; letter-spacing: 1px; }
 
-    /* Modal / Popup-fönster (Skytt-detaljer & Jämför) */
-    #shooterModal, #compareModal { padding: 20px 10px; }
-    .sm-inner, .cm-inner { padding: 20px 15px; width: 100%; border-radius: 12px; }
-    .sm-title { font-size: 1.5rem; }
-    .sm-stg-val { font-size: 1.1rem; }
-    .comp-table { display: block; overflow-x: auto; white-space: nowrap; }
-    .comp-table th, .comp-table td { padding: 10px 8px; font-size: 0.8rem; }
-    
-    /* Jämför-baren i botten */
+    /* Match-lista */
+    .page-inner { padding: 16px; }
+    .filters-row { gap: 8px; }
+    .mrow {
+      grid-template-columns: 80px 1fr auto;
+      grid-template-rows: auto auto;
+      gap: 4px 10px;
+      padding: 12px 14px;
+    }
+    .mrow-date { font-size: 0.62rem; }
+    .mrow-name { font-size: 0.85rem; grid-column: 2; }
+    .mrow-sport { grid-column: 2; font-size: 0.55rem; }
+    .mrow-arrow { grid-column: 3; grid-row: 1 / 3; align-self: center; font-size: 1.2rem; }
+    .mrow-slots { display: none; }
+
+    /* Resultat-sida */
+    #resultsPage { padding: 14px 16px; }
+    .back-btn { font-size: 0.65rem; padding: 7px 12px; margin-bottom: 18px; }
+    .match-title { font-size: 1.5rem; }
+    .match-meta { font-size: 0.62rem; word-break: break-all; }
+    .summary-row { gap: 8px; margin-bottom: 18px; }
+    .stat-box { padding: 12px; }
+    .stat-val { font-size: 1.6rem; }
+    .stat-key { font-size: 0.58rem; }
+
+    /* Filter-bar */
+    .filter-bar { 
+      flex-direction: column; 
+      gap: 10px; 
+      padding: 14px; 
+      margin-bottom: 16px;
+    }
+    .fg { min-width: unset; }
+    .fg select { font-size: 1rem; padding: 12px; }
+    .pcc-toggle { 
+      align-self: stretch; 
+      justify-content: center;
+      padding: 12px;
+      font-size: 0.8rem;
+    }
+
+    /* Restore-bar */
+    #restoreBar { font-size: 0.68rem; padding: 10px 14px; }
+
+    /* Resultat-tabell – kortlayout med % synlig */
+    .rtable { display: block; width: 100%; overflow-x: hidden; }
+    .rtable thead { display: none; }
+    .rtable tbody { display: flex; flex-direction: column; gap: 6px; }
+    .rtable tbody tr {
+      display: grid;
+      grid-template-columns: 28px 36px 1fr;
+      grid-template-rows: auto auto;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      gap: 2px 8px;
+    }
+    .rtable tbody tr:hover { background: rgba(255,77,0,0.04); }
+
+    /* Kolumn 1: kryssruta – sträck över båda raderna */
+    .rtable td:nth-child(1) { grid-column: 1; grid-row: 1 / 3; align-self: center; padding: 0; border: none; }
+    /* Kolumn 2: rank – sträck över båda raderna */
+    .rtable td:nth-child(2) { grid-column: 2; grid-row: 1 / 3; align-self: center; padding: 0; border: none; }
+    /* Kolumn 3: namn */
+    .rtable td:nth-child(3) { grid-column: 3; grid-row: 1; padding: 0; border: none; }
+    /* Dölj HF, tid, råpoäng – men inte pct-last */
+    .rtable td:nth-child(4):not(.pct-last),
+    .rtable td:nth-child(5):not(.pct-last),
+    .rtable td:nth-child(6):not(.pct-last) { display: none; }
+    /* %-cellen alltid på rad 2 under namnet */
+    .rtable td.pct-last { grid-column: 3; grid-row: 2; padding: 0; border: none; display: block; }
+
+    .rtable td { white-space: nowrap; font-size: 0.82rem; }
+    .rtable td.n { text-align: left; }
+    .rank { font-size: 1.1rem; }
+    .sname { font-size: 0.82rem; flex-wrap: nowrap; gap: 4px; }
+    .badge { font-size: 0.55rem; padding: 1px 4px; }
+    .rm-btn { width: 20px; height: 20px; font-size: 0.8rem; }
+    .pct-cell { min-width: unset; }
+    .pbw { gap: 5px; width: 100%; }
+    .pb { flex: 1; }
+    .pl { font-size: 0.72rem; min-width: 42px; }
+    .mob-pts { display: inline; font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--muted); margin-left: 6px; }
+    .div-name { font-size: 1.2rem; }
+
+    /* Shooter modal – slide up från botten */
+    #shooterModal { 
+      padding: 0; 
+      align-items: flex-end;
+    }
+    .sm-content { 
+      max-width: 100%; 
+      border-radius: 16px 16px 0 0; 
+      padding: 20px 18px 32px;
+      max-height: 80vh;
+    }
+    .sm-title { font-size: 1.6rem; }
+
+    /* Compare modal */
+    #compareModal { padding: 16px 10px; }
+    .cm-inner { padding: 18px 14px; }
+    .comp-table { display: block; overflow-x: auto; }
+    .comp-table th, .comp-table td { padding: 8px 6px; font-size: 0.72rem; }
+
+    /* Compare bar */
     #compareBar { 
-      width: 95%; 
+      width: calc(100% - 24px);
+      left: 12px;
+      transform: none;
       flex-wrap: wrap; 
       justify-content: center; 
-      padding: 12px; 
+      padding: 12px 16px; 
       bottom: -150px; 
-      border-radius: 20px;
+      border-radius: 14px;
+      gap: 10px;
     }
-    #compareBar.show { bottom: 15px; }
-    .cb-text { width: 100%; text-align: center; margin-bottom: 8px; }
-    .cb-btn, .cb-clear { flex: 1; text-align: center; padding: 10px; font-size: 0.9rem; }
+    #compareBar.show { bottom: 12px; }
+    .cb-text { width: 100%; text-align: center; }
+    .cb-btn, .cb-clear { flex: 1; text-align: center; padding: 11px; font-size: 0.85rem; }
   }
 
-  /* Justering för ännu mindre skärmar (t.ex. äldre iPhones) */
-  @media (max-width: 480px) {
-    h1 { font-size: 1.8rem; }
-    .sname { font-size: 0.85rem; }
-    .badge { padding: 2px 4px; font-size: 0.6rem; }
+  /* Extra liten skärm */
+  @media (max-width: 400px) {
+    h1 { font-size: 1.7rem; }
+    .tab { font-size: 0.78rem; padding: 9px 12px; }
+    .rtable tbody tr { grid-template-columns: 28px 28px 1fr auto; }
+    .sname { font-size: 0.76rem; }
+    .pl { font-size: 0.68rem; min-width: 38px; }
   }
   
 </style>
@@ -412,6 +541,9 @@ function parseEvents(html) {
     const linkText = link.textContent.trim();
     const rowText  = row.textContent.trim().replace(/\s+/g, ' '); 
 
+    // Skippa premium-matcher helt
+    if (/premium/i.test(linkText) || link.closest('[class*="premium"]') || /premium/i.test(evCell.textContent)) return;
+
     let eType = null, eId = null;
     const dm = href.match(/\/event\/(\d+)\/(\d+)\//);
     if (dm) {
@@ -434,23 +566,47 @@ function parseEvents(html) {
 
     let parsedDate = null;
     const dateRxUS = /\b([A-Z][a-z]+\.?)\s+(\d{1,2}),\s+(\d{4})\b/i; 
-    const dateRxISO = /\b(\d{4})-(\d{2})-(\d{2})\b/; 
+    const dateRxISO = /\b(\d{4})-(\d{2})-(\d{2})\b/;
+    const dateRxEU  = /\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/;
 
-    const dmISO = rowText.match(dateRxISO);
-    const dmUS = rowText.match(dateRxUS);
+    // Försök hitta datum i dedikerade datumceller (tds[0] och tds[2]) först
+    const dateCandidates = [tds[0].textContent.trim(), tds[2].textContent.trim()];
+    
+    for (const dc of dateCandidates) {
+      const dmISO = dc.match(dateRxISO);
+      const dmUS  = dc.match(dateRxUS);
+      const dmEU  = dc.match(dateRxEU);
+      if (dmISO) {
+        parsedDate = new Date(`${dmISO[1]}-${dmISO[2]}-${dmISO[3]}`);
+        break;
+      } else if (dmUS) {
+        parsedDate = new Date(`${dmUS[1].replace('.','').replace('Sept','Sep')} ${dmUS[2]}, ${dmUS[3]}`);
+        break;
+      } else if (dmEU) {
+        // dd/mm/yyyy eller dd.mm.yyyy
+        parsedDate = new Date(`${dmEU[3]}-${dmEU[2].padStart(2,'0')}-${dmEU[1].padStart(2,'0')}`);
+        break;
+      }
+    }
 
-    if (dmISO) {
-      parsedDate = new Date(`${dmISO[1]}-${dmISO[2]}-${dmISO[3]}`);
-    } else if (dmUS) {
-      parsedDate = new Date(`${dmUS[1].replace('.','').replace('Sept','Sep')} ${dmUS[2]}, ${dmUS[3]}`);
-    } else {
-      parsedDate = new Date();
+    // Fallback: sök i hela rowText
+    if (!parsedDate || isNaN(parsedDate)) {
+      const dmISO = rowText.match(dateRxISO);
+      const dmUS  = rowText.match(dateRxUS);
+      if (dmISO) {
+        parsedDate = new Date(`${dmISO[1]}-${dmISO[2]}-${dmISO[3]}`);
+      } else if (dmUS) {
+        parsedDate = new Date(`${dmUS[1].replace('.','').replace('Sept','Sep')} ${dmUS[2]}, ${dmUS[3]}`);
+      } else {
+        parsedDate = new Date();
+      }
     }
 
     if (!isNaN(parsedDate)) parsedDate.setHours(0,0,0,0);
 
     const name = linkText
       .replace(dateRxUS, '')
+      .replace(dateRxISO, '')
       .replace(/\|\s*\d+\/\d+\s*$/, '')
       .replace(/premium\s*$/i, '')
       .trim();
@@ -561,15 +717,40 @@ function parseSSI(html, sourceUrl) {
   }
   title = title || 'Match Results';
 
+// Längsta namnen FÖRST, och alla PCC-varianter före vanliga Optics
   const knownDivs = [
-    'PRODUCTION OPTICS LIGHT', 'PRODUCTION OPTICS', 'OPTICS LIGHT', 'OPTICS', 'PRODUCTION',
-    'PISTOL CALIBER CARBINE', 'PCC',
-    'SEMI AUTO OPEN', 'SEMI AUTO STANDARD',
-    'MANUAL ACTION OPEN', 'MANUAL ACTION STANDARD',
-    'MINI RIFLE OPEN', 'MINI RIFLE STANDARD', 'MINI RIFLE',
-    'STANDARD MANUAL', 'STANDARD',
-    'OPEN', 'CLASSIC', 'REVOLVER', 'MODIFIED'
+    'PISTOL CALIBER CARBINE OPTICS',
+    'PISTOL CALIBER CARBINE IRON',
+    'PISTOL CALIBER CARBINE',
+    'PCC OPTICS',
+    'PCC IRON',
+    'PCC',
+    'PRODUCTION OPTICS LIGHT',
+    'PRODUCTION OPTICS',
+    'OPTICS LIGHT',
+    'SEMI AUTO STANDARD',
+    'MANUAL ACTION STANDARD',
+    'MINI RIFLE STANDARD',
+    'STANDARD MANUAL',
+    'SEMI AUTO OPEN',
+    'MANUAL ACTION OPEN',
+    'MINI RIFLE OPEN',
+    'MINI RIFLE',
+    'PRODUCTION',
+    'STANDARD',
+    'MODIFIED',
+    'REVOLVER',
+    'CLASSIC',
+    'OPTICS',
+    'OPEN'
   ];
+
+  // Normalisera långa divisionsnamn till korta
+  const divNormalize = {
+    'PISTOL CALIBER CARBINE OPTICS': 'PCC OPTICS',
+    'PISTOL CALIBER CARBINE IRON':   'PCC IRON',
+    'PISTOL CALIBER CARBINE':        'PCC',
+  };
 
   const divs = [];
   doc.querySelectorAll('h2,h3,h4,.result-header,[class*="division-name"],[class*="div-name"],[class*="cat-name"],.stage-name').forEach(h => {
@@ -582,7 +763,24 @@ function parseSSI(html, sourceUrl) {
 
     const up = ht.toUpperCase();
     let guessedDiv = null;
-    for (let d of knownDivs) { if (up.includes(d)) { guessedDiv = d; break; } }
+    
+// Uppdaterad logik: Fångar +, vanliga -, samt typografiska tankstreck/minus (–, —, −)
+    for (let d of knownDivs) { 
+      const baseRegex = new RegExp(d, 'i');
+      if (!baseRegex.test(up)) continue;
+      
+      const signRegex = new RegExp(d + "\\s*([\\+\\-–—−])", 'i');
+      const signMatch = up.match(signRegex);
+      
+      if (signMatch) {
+        const sign = signMatch[1] === '+' ? '+' : '-';
+        guessedDiv = (divNormalize[d] || d) + sign;
+      } else {
+        guessedDiv = divNormalize[d] || d;
+      }
+      break; 
+    }
+    
     comps.forEach(c => { if(!c.div && guessedDiv) c.div = guessedDiv; });
     if(comps.length)divs.push({name:ht,competitors:comps});
   });
@@ -601,16 +799,35 @@ function parseSSI(html, sourceUrl) {
   const us=new Set(); ud.forEach(d=>d.competitors.forEach(c=>us.add(c.name.trim().toLowerCase())));
   const om=new Map();
   
-  ud.forEach(stage=>{
+ud.forEach(stage=>{
     if(!stage.competitors.some(c=>c.hf!==null))return;
     let mH=0,mS=0; stage.competitors.forEach(c=>{if(c.hf&&c.hf>mH)mH=c.hf;if(c.stageMaxPts&&c.stageMaxPts>mS)mS=c.stageMaxPts;});
+    
     stage.competitors.forEach(c=>{
+      
+      // --- NY KOD: Flytta + och ALLA sorters minus från namnet till divisionen ---
+      const pmMatch = c.name.match(/\s*([+\-–—−])\s*$/);
+      if (pmMatch) {
+         const sign = pmMatch[1] === '+' ? '+' : '-';
+         if (c.div) {
+           if (!c.div.endsWith(sign)) {
+             c.div = c.div.trim() + sign;
+           }
+         } else {
+           c.div = sign;
+         }
+         c.name = c.name.replace(/\s*[+\-–—−]\s*$/, '').trim();
+      }
+      // -----------------------------------------------------------
+
       const k=c.name.trim().toLowerCase();
       
       if(!om.has(k))om.set(k,{name:c.name,pts:0,hf:null,time:null,stages:[],div:null,cat:null, detailedStages: []});
       const s=om.get(k); 
       
+      // Spara den uppdaterade divisionen
       if(c.div) s.div = c.div; 
+      
       let stagePts = (mH>0&&c.hf!==null&&mS>0)?((c.hf/mH)*mS):(c.pts||0);
       s.pts += stagePts;
       
@@ -622,11 +839,10 @@ function parseSSI(html, sourceUrl) {
          hits: c.hits,
          pct: (mH>0 && c.hf!==null) ? (c.hf/mH)*100 : 0,
          matchPts: stagePts,
-         stageMaxPts: mS // NYTT: Spara maxpoängen per stage för framtida omräkning
+         stageMaxPts: mS 
       });
     });
   });
-  
   const ov=Array.from(om.values()).sort((a,b)=>b.pts-a.pts);
   if(ov.length)ud.unshift({name:'Overall Match Results',competitors:ov});
   return {title,divisions:ud,totalCompetitors:us.size,sourceUrl};
@@ -675,24 +891,58 @@ function ptable(table,apiMap){
     
     if(!name||name.length<2||/^[\d.,%]+$/.test(name))return;
 
-    const knownDivs = [
-      'PRODUCTION OPTICS LIGHT', 'PRODUCTION OPTICS', 'OPTICS LIGHT', 'OPTICS', 'PRODUCTION',
-      'PISTOL CALIBER CARBINE', 'PCC',
-      'SEMI AUTO OPEN', 'SEMI AUTO STANDARD',
-      'MANUAL ACTION OPEN', 'MANUAL ACTION STANDARD',
-      'MINI RIFLE OPEN', 'MINI RIFLE STANDARD', 'MINI RIFLE',
-      'STANDARD MANUAL', 'STANDARD',
-      'OPEN', 'CLASSIC', 'REVOLVER', 'MODIFIED'
-    ];
+  const knownDivs = [
+    'PISTOL CALIBER CARBINE OPTICS',
+    'PISTOL CALIBER CARBINE IRON',
+    'PISTOL CALIBER CARBINE',
+    'PCC OPTICS',
+    'PCC IRON',
+    'PCC',
+    'PRODUCTION OPTICS LIGHT',
+    'PRODUCTION OPTICS',
+    'OPTICS LIGHT',
+    'SEMI AUTO STANDARD',
+    'MANUAL ACTION STANDARD',
+    'MINI RIFLE STANDARD',
+    'STANDARD MANUAL',
+    'SEMI AUTO OPEN',
+    'MANUAL ACTION OPEN',
+    'MINI RIFLE OPEN',
+    'MINI RIFLE',
+    'PRODUCTION',
+    'STANDARD',
+    'MODIFIED',
+    'REVOLVER',
+    'CLASSIC',
+    'OPTICS',
+    'OPEN'
+  ];
+
+  const divNormalize2 = {
+    'PISTOL CALIBER CARBINE OPTICS': 'PCC OPTICS',
+    'PISTOL CALIBER CARBINE IRON':   'PCC IRON',
+    'PISTOL CALIBER CARBINE':        'PCC',
+  };
     
     if(!compDiv) {
       for(let d of knownDivs) {
         const regex = new RegExp(`\\b${d}\\b`, 'i');
         if(regex.test(name)) {
-          compDiv = (d === 'PISTOL CALIBER CARBINE') ? 'PCC' : d;
-          const replaceReg = new RegExp(`[\\-\\(\\s]*\\b${d}\\b[\\-\\)\\s]*`, 'i');
-          name = name.replace(replaceReg, ' ').trim();
-          name = name.replace(/^[-]+|[-]+$/g, '').trim(); 
+          const baseDiv = divNormalize2[d.toUpperCase()] || d;
+          // Kolla om det finns ett +/- direkt efter divisionsnamnet
+          const signRegex = new RegExp(`\\b${d}\\s*([+\\-–—−])`, 'i');
+          const signMatch = name.match(signRegex);
+          if (signMatch) {
+            const sign = signMatch[1] === '+' ? '+' : '-';
+            compDiv = baseDiv + sign;
+            const replaceReg = new RegExp(`[\\(\\s]*\\b${d}\\s*[+\\-–—−][\\)\\s]*`, 'i');
+            name = name.replace(replaceReg, ' ').trim();
+          } else {
+            compDiv = baseDiv;
+            const replaceReg = new RegExp(`[\\-\\(\\s]*\\b${d}\\b[\\-\\)\\s]*`, 'i');
+            name = name.replace(replaceReg, ' ').trim();
+            name = name.replace(/^[-]+|[-]+$/g, '').trim();
+          }
           break; 
         }
       }
@@ -717,7 +967,8 @@ function renderBaseUI(){
   data.divisions.forEach(d => {
     d.competitors.forEach(c => {
       if(c.div && c.div !== 'null') {
-        ad.add(String(c.div).trim().toUpperCase());
+        const divBase = String(c.div).trim().toUpperCase().replace(/[+\-]$/, '');
+        ad.add(divBase);
       }
     });
   });
@@ -732,14 +983,49 @@ function renderBaseUI(){
     </div>
     <div class="summary-row">
       <div class="stat-box"><div class="stat-val">${data.totalCompetitors}</div><div class="stat-key">Skyttar</div></div>
-      <div class="stat-box"><div class="stat-val">${data.divisions.length}</div><div class="stat-key">Stages</div></div>
+      <div class="stat-box"><div class="stat-val">${data.divisions.length - 1}</div><div class="stat-key">Stages</div></div>
     </div>
     <div class="filter-bar">
       <div class="fg"><label>Stage / Resultat</label><select id="sfS" onchange="af()">${so}</select></div>
       <div class="fg"><label>Division</label><select id="sfD" onchange="af()"><option value="">Alla</option>${doo}</select></div>
+      <div class="pcc-toggle" id="pccToggle" onclick="togglePCC()">
+        <div class="tog-dot"></div>DÖLJ PCC
+      </div>
     </div>
+    <div id="restoreBar"><b id="hiddenCount">0</b> skyttar dolda<button class="restore-btn" onclick="restoreAllShooters()">ÅTERSTÄLL ALLA</button></div>
     <div id="tv"></div>`;
+
     
+  af();
+}
+
+window.hiddenShooters = new Set();
+
+function removeShooter(name) {
+  window.hiddenShooters.add(name);
+  updateRestoreBar();
+  af();
+}
+
+function restoreAllShooters() {
+  window.hiddenShooters.clear();
+  updateRestoreBar();
+  af();
+}
+
+function updateRestoreBar() {
+  const bar = document.getElementById('restoreBar');
+  const cnt = document.getElementById('hiddenCount');
+  if (!bar) return;
+  const n = window.hiddenShooters.size;
+  if (cnt) cnt.textContent = n;
+  bar.classList.toggle('on', n > 0);
+}
+
+function togglePCC() {
+  window.hidePCC = !window.hidePCC;
+  const btn = document.getElementById('pccToggle');
+  if(btn) btn.classList.toggle('active', window.hidePCC);
   af();
 }
 
@@ -753,7 +1039,9 @@ function af(){
   if(!stage) return;
   
   let f = stage.competitors.filter(c => {
-    const d = String(c.div || '').trim().toUpperCase();
+    const d = String(c.div || '').trim().toUpperCase().replace(/[+\-]$/, '');
+    if(window.hiddenShooters && window.hiddenShooters.has(c.name)) return false;
+    if(window.hidePCC && (d === 'PCC' || d === 'PCC OPTICS' || d === 'PCC IRON' || d === 'PISTOL CALIBER CARBINE' || d === 'PISTOL CALIBER CARBINE OPTICS' || d === 'PISTOL CALIBER CARBINE IRON')) return false;
     return (!dv || d === dv.toUpperCase());
   });
   
@@ -856,18 +1144,24 @@ function rtv(vn, competitors, isOverall){
     
     const isChecked = window.compareList.some(s => s.name === c.name);
     
-    h+=`<tr style="cursor:pointer;" onclick="openShooterModal(${ri})">
-      <td onclick="event.stopPropagation(); toggleCompare(${ri})">
+    h+=`<tr>
+      <td onclick="toggleCompare(${ri})" style="cursor:pointer;">
         <div class="chk-box ${isChecked ? 'checked' : ''}"></div>
       </td>
-      <td><span class="rank"${gc}>${c.vp}</span></td><td><div class="sname">${esc(c.name)} ${badges}</div></td>`;
+      <td onclick="openShooterModal(${ri})" style="cursor:pointer;"><span class="rank"${gc}>${c.vp}</span></td>
+      <td onclick="openShooterModal(${ri})" style="cursor:pointer;">
+        <div class="sname" style="justify-content:space-between;">
+          <div>${esc(c.name)} ${badges}</div>
+          <button class="rm-btn" onclick="event.stopPropagation(); removeShooter(window.currentRenderedCompetitors[${ri}].name)" title="Ta bort skytt">×</button>
+        </div>
+      </td>`;
     
     if(isS) {
-      h+=`<td class="n" style="color:var(--accent2);font-weight:bold">${hfs}</td><td class="n">${tms}</td><td class="n">${pts}</td>
-      <td class="pct-cell"><div class="pbw"><div class="pb"><div class="pf" style="width:${bw}%"></div></div><span class="pl">${ps}</span></div></td>`;
+      h+=`<td class="n" onclick="openShooterModal(${ri})" style="cursor:pointer;color:var(--accent2);font-weight:bold">${hfs}</td><td class="n" onclick="openShooterModal(${ri})" style="cursor:pointer;">${tms}</td><td class="n" onclick="openShooterModal(${ri})" style="cursor:pointer;">${pts}</td>
+      <td class="pct-cell pct-last" onclick="openShooterModal(${ri})" style="cursor:pointer;"><div class="pbw"><div class="pb"><div class="pf" style="width:${bw}%"></div></div><span class="pl">${ps}</span><span class="mob-pts">${pts} p</span></div></td>`;
     } else {
-      h+=`<td class="n" style="color:var(--accent2);font-weight:bold">${pts}</td>
-      <td class="pct-cell"><div class="pbw"><div class="pb"><div class="pf" style="width:${bw}%"></div></div><span class="pl">${ps}</span></div></td>`;
+      h+=`<td class="n" onclick="openShooterModal(${ri})" style="cursor:pointer;color:var(--accent2);font-weight:bold">${pts}</td>
+      <td class="pct-cell pct-last" onclick="openShooterModal(${ri})" style="cursor:pointer;"><div class="pbw"><div class="pb"><div class="pf" style="width:${bw}%"></div></div><span class="pl">${ps}</span><span class="mob-pts">${pts} p</span></div></td>`;
     }
     h+=`</tr>`;
   });
@@ -1066,8 +1360,16 @@ function openCompareModal() {
         const hf = sds && sds.hf ? sds.hf.toFixed(4) : '0.0000';
         const ptsStr = stgPts ? stgPts.toFixed(2) : '0.00';
         const isWinner = sds && sds.hf === maxHf && maxHf > 0;
+        const h = sds && sds.hits;
+        const tid = sds && sds.time ? sds.time.toFixed(2) + 's' : '—';
+        const hitsStr = h
+          ? `<span style="color:var(--green)">A${h.a}</span> <span style="color:#aaa">C${h.c}</span> <span style="color:#f90">D${h.d}</span> <span style="color:var(--accent)">M${h.m}</span> <span style="color:#c792ea">P${h.pt}</span> <span style="color:var(--muted)">${tid}</span>`
+          : `<span style="color:var(--muted)">${tid}</span>`;
         
-        stagesHtml += `<td class="${isWinner ? 'winner-cell' : ''}">${hf} HF<br><span style="font-size:0.65rem; color:var(--muted)">${ptsStr} p</span></td>`;
+        stagesHtml += `<td class="${isWinner ? 'winner-cell' : ''}">
+          <div style="font-size:0.95rem; font-weight:bold; margin-bottom:3px;">${hitsStr}</div>
+          <div style="font-size:0.65rem; color:var(--muted)">${ptsStr} p &nbsp;·&nbsp; ${hf} HF</div>
+        </td>`;
      });
      stagesHtml += `</tr>`;
   });
