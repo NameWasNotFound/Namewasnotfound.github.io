@@ -775,7 +775,7 @@ function parseEvents(html) {
 // ─── SPORT FILTER ────────────────────────────────────────────────────────────
 function fillSportSel(id, matches) {
   const sel = document.getElementById(id);
-  const sports = [...new Set(matches.map(m=>m.sport).filter(Boolean))].sort();
+  const sports = [...new Set(matches.map(m=>m.sport).filter(s => s && !/prs/i.test(s)))].sort();
   sports.forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
 }
 
