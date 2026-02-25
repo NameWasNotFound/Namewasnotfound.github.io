@@ -381,11 +381,11 @@
 <body>
 
 <header>
-  <div class="logo-row"><h1>IPSC RESULTS</h1><span class="tag">LIVE</span></div>
+  <div class="logo-row" onclick="goHome()" style="cursor:pointer;"><h1>IPSC RESULTS</h1><span class="tag">LIVE</span></div>
   <div class="subtitle">SHOOT'N SCORE IT · SVENSKA MATCHER</div>
   <div class="tabs">
-    <div class="tab active" id="tabU" onclick="switchTab('u')">KOMMANDE <span class="tab-count" id="cntU">–</span></div>
-    <div class="tab" id="tabC" onclick="switchTab('c')">AVSLUTADE <span class="tab-count" id="cntC">–</span></div>
+    <div class="tab active" id="tabU" onclick="navTab('u')">KOMMANDE <span class="tab-count" id="cntU">–</span></div>
+    <div class="tab" id="tabC" onclick="navTab('c')">AVSLUTADE <span class="tab-count" id="cntC">–</span></div>
   </div>
 </header>
 
@@ -447,7 +447,10 @@
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const PROXIES = [
   url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  url => `https://cors.eu.org/${url}`,
+  url => `https://thingproxy.freeboard.io/fetch/${url}`,
   url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.org/?${encodeURIComponent(url)}`,
 ];
 const URL_U = 'https://shootnscoreit.com/regional-events/swe/';
 const URL_C = 'https://shootnscoreit.com/completed-regional-events/swe/2026/';
@@ -468,24 +471,60 @@ addEventListener('DOMContentLoaded', () => {
 let fetchAbortController = null;
 
 // ─── FETCH WITH PROXY FALLBACK ────────────────────────────────────────────────
-async function fetchHtml(url) {
-  // Skapa en ny controller varje gång vi påbörjar en nedladdning
-  fetchAbortController = new AbortController(); 
+async function fetchHtml(url, onProgress) {
+  fetchAbortController = new AbortController();
   const signal = fetchAbortController.signal;
 
   for (const mkProxy of PROXIES) {
+    const proxyUrl = mkProxy(url);
     try {
-      const r = await fetch(mkProxy(url), {
-        headers: { Accept: 'text/html' },
-        signal: signal // Skicka med signalen så vi kan avbryta anropet
+      const r = await fetch(proxyUrl, {
+        headers: { 
+          'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+          'Accept-Encoding': 'gzip, deflate, br',
+        },
+        signal
       });
+
       if (!r.ok) continue;
-      const text = await r.text();
-      if (text.includes('<tr') || text.includes('<TR')) return text;
+
+      // Streama svaret i chunks för att hantera stora svar
+      const contentLength = r.headers.get('content-length');
+      const total = contentLength ? parseInt(contentLength) : 0;
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let received = 0;
+      let chunks = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (onProgress && total > 0) {
+          onProgress(received, total);
+        } else if (onProgress) {
+          onProgress(received, 0);
+        }
+      }
+
+      // Sätt ihop alla chunks till en sträng
+      const allChunks = new Uint8Array(received);
+      let pos = 0;
+      for (const chunk of chunks) {
+        allChunks.set(chunk, pos);
+        pos += chunk.length;
+      }
+      const text = decoder.decode(allChunks);
+
+      if (text && text.length > 100 && (text.includes('<tr') || text.includes('<TR'))) {
+        return text;
+      }
     } catch(e) {
       if (e.name === 'AbortError') {
-        console.log('Nedladdning avbröts av användaren.');
-        return null; // Returnera null om vi avbröt med flit
+        if (signal.aborted) return null;
+        fetchAbortController = new AbortController();
+        continue;
       }
     }
   }
@@ -502,6 +541,7 @@ function cancelFetch() {
 
 async function loadAll() {
   const [hu, hc] = await Promise.all([fetchHtml(URL_U), fetchHtml(URL_C)]);
+
   if (hu) {
     matchesU = parseEvents(hu);
     fillSportSel('spU', matchesU);
@@ -512,17 +552,15 @@ async function loadAll() {
     fillSportSel('spC', matchesC);
     renderC();
   }
+
   if (!hu && !hc) {
     const bar = document.getElementById('scanBar');
     bar.className = 'err';
     document.getElementById('scanLabel').textContent = '✕ Kunde inte hämta matcher – kontrollera nätverksanslutningen/proxyn';
     return;
   }
-  
-  // Timeout borttagen – döljer "scanBar" direkt istället för att vänta 400 ms
-  document.getElementById('scanBar').className = 'done';
+  setTimeout(() => document.getElementById('scanBar').className = 'done', 400);
 }
-
 
 // ─── PARSE EVENTS PAGE ────────────────────────────────────────────────────────
 function parseEvents(html) {
@@ -683,20 +721,54 @@ function drawList(id, list, isCompleted) {
 
 async function openMatch(url) {
   backTab = activeTab;
-  document.getElementById('ov').className = 'on';
+  const ov = document.getElementById('ov');
+  const ll = ov.querySelector('.ll');
+  ov.className = 'on';
+
+  const onProgress = (received, total) => {
+    if (!ll) return;
+    const mb = (received / 1048576).toFixed(1);
+    if (total > 0) {
+      const pct = Math.round((received / total) * 100);
+      const totalMb = (total / 1048576).toFixed(1);
+      ll.textContent = `LADDAR... ${mb} / ${totalMb} MB (${pct}%)`;
+    } else {
+      ll.textContent = `LADDAR... ${mb} MB`;
+    }
+  };
+
   try {
-    const html = await fetchHtml(url);
-    if (!html) throw new Error('Kunde inte hämta sidan');
+    if (ll) ll.textContent = 'HÄMTAR RESULTAT...';
+    const html = await fetchHtml(url, onProgress);
+    if (!html) throw new Error('Kunde inte hämta sidan – försök igen eller kontrollera din anslutning');
+    if (ll) ll.textContent = 'BEARBETAR DATA...';
+    await new Promise(r => setTimeout(r, 50));
     const data = parseSSI(html, url);
-    if (!data.totalCompetitors) throw new Error('Ingen skyttedata hittades');
+    if (!data.totalCompetitors) throw new Error('Ingen skyttedata hittades på sidan');
     window.CMD = data;
     document.getElementById('panU').style.display = 'none';
     document.getElementById('panC').style.display = 'none';
     document.getElementById('resultsPage').className = 'on';
     renderBaseUI();
     window.scrollTo(0,0);
-  } catch(e) { alert(e.message); }
-  finally { document.getElementById('ov').className = ''; }
+  } catch(e) { 
+    alert(e.message); 
+  }
+  finally { ov.className = ''; }
+}
+
+function goHome() {
+  goBack();
+  switchTab('u');
+}
+
+function navTab(t) {
+  // Om resultatssidan är öppen, stäng den först
+  const rp = document.getElementById('resultsPage');
+  if (rp && rp.classList.contains('on')) {
+    goBack();
+  }
+  switchTab(t);
 }
 
 function goBack() {
@@ -797,7 +869,11 @@ function parseSSI(html, sourceUrl) {
   
   const seen=new Set();
   const ud=divs.filter(d=>{const k=d.name+d.competitors.length;if(seen.has(k))return false;seen.add(k);return true;});
-  const us=new Set(); ud.forEach(d=>d.competitors.forEach(c=>us.add(c.name.trim().toLowerCase())));
+  const us=new Set(); 
+  ud.forEach(d=>d.competitors.forEach(c=>{
+    const cleanDiv = (c.div||'').trim().toUpperCase().replace(/[+\-]$/,'');
+    us.add(c.name.trim().toLowerCase() + (cleanDiv ? '||'+cleanDiv : ''));
+  }));
   const om=new Map();
   
 ud.forEach(stage=>{
@@ -821,9 +897,11 @@ ud.forEach(stage=>{
       }
       // -----------------------------------------------------------
 
-      const k=c.name.trim().toLowerCase();
+      const cleanName = c.name.trim().toLowerCase();
+      const cleanDiv  = (c.div || '').trim().toUpperCase().replace(/[+\-]$/, '');
+      const k = cleanDiv ? `${cleanName}||${cleanDiv}` : cleanName;
       
-      if(!om.has(k))om.set(k,{name:c.name,pts:0,hf:null,time:null,stages:[],div:null,cat:null, detailedStages: []});
+      if(!om.has(k))om.set(k,{name:c.name,pts:0,hf:null,time:null,stages:[],div:c.div||null,cat:null, detailedStages: []});
       const s=om.get(k); 
       
       // Spara den uppdaterade divisionen
@@ -1003,7 +1081,10 @@ function renderBaseUI(){
 window.hiddenShooters = new Set();
 
 function removeShooter(name) {
-  window.hiddenShooters.add(name);
+  // Hitta skytten i currentRenderedCompetitors för att få rätt nyckel med div
+  const c = window.currentRenderedCompetitors && window.currentRenderedCompetitors.find(s => s.name === name);
+  const key = c ? shooterKey(c) : name.trim().toLowerCase();
+  window.hiddenShooters.add(key);
   updateRestoreBar();
   af();
 }
@@ -1041,7 +1122,7 @@ function af(){
   
   let f = stage.competitors.filter(c => {
     const d = String(c.div || '').trim().toUpperCase().replace(/[+\-]$/, '');
-    if(window.hiddenShooters && window.hiddenShooters.has(c.name)) return false;
+    if(window.hiddenShooters && window.hiddenShooters.has(shooterKey(c))) return false;
     if(window.hidePCC && (d === 'PCC' || d === 'PCC OPTICS' || d === 'PCC IRON' || d === 'PISTOL CALIBER CARBINE' || d === 'PISTOL CALIBER CARBINE OPTICS' || d === 'PISTOL CALIBER CARBINE IRON')) return false;
     return (!dv || d === dv.toUpperCase());
   });
@@ -1143,7 +1224,7 @@ function rtv(vn, competitors, isOverall){
     if(c.div && c.div !== 'null') badges += `<span class="badge">${esc(c.div)}</span>`;
     if(c.cat && c.cat !== 'null') c.cat.split(',').forEach(p=>{badges+=`<span class="badge" style="border-color:var(--accent);color:var(--accent)">${esc(p.trim())}</span>`;});
     
-    const isChecked = window.compareList.some(s => s.name === c.name);
+    const isChecked = window.compareList.some(s => shooterKey(s) === shooterKey(c));
     
     h+=`<tr>
       <td onclick="toggleCompare(${ri})" style="cursor:pointer;">
@@ -1185,7 +1266,7 @@ function openShooterModal(idx) {
   if (details.length === 0 && window.CMD.divisions.length > 0) {
     const overallDiv = window.CMD.divisions.find(d => d.name.toUpperCase().includes('OVERALL'));
     if (overallDiv) {
-       const oc = overallDiv.competitors.find(comp => comp.name === c.name);
+       const oc = overallDiv.competitors.find(comp => shooterKey(comp) === shooterKey(c));
        if (oc && oc.detailedStages) details = oc.detailedStages;
     }
   }
@@ -1262,29 +1343,34 @@ function esc(s){return !s?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 // ─── JÄMFÖR SKYTTAR FUNKTIONER ─────────────────────────────────────────────
 window.compareList = [];
 
+function shooterKey(c) {
+  const d = (c.div||'').trim().toUpperCase().replace(/[+\-]$/,'');
+  return c.name.trim().toLowerCase() + (d ? '||' + d : '');
+}
+
 function toggleCompare(idx) {
   const compInView = window.currentRenderedCompetitors[idx];
   if(!compInView) return;
-  const name = compInView.name;
+  const key = shooterKey(compInView);
 
-  const listIdx = window.compareList.findIndex(s => s.name === name);
+  const listIdx = window.compareList.findIndex(s => shooterKey(s) === key);
   if (listIdx >= 0) {
-    window.compareList.splice(listIdx, 1); // Ta bort om den redan finns
+    window.compareList.splice(listIdx, 1);
   } else {
     if (window.compareList.length >= 5) {
       alert("Du kan max jämföra 5 skyttar samtidigt.");
       return;
     }
-    // Hitta från Overall
+    // Hitta från Overall med namn+div
     const overallDiv = window.CMD.divisions.find(d => d.name.toUpperCase().includes('OVERALL'));
     let comp = null;
-    if (overallDiv) comp = overallDiv.competitors.find(c => c.name === name);
+    if (overallDiv) comp = overallDiv.competitors.find(c => shooterKey(c) === key);
     if (!comp) comp = compInView; 
     
     if(comp) window.compareList.push(comp);
   }
   
-  af(); // Laddar om tabellen så kryssrutan uppdateras
+  af();
   updateCompareBar();
 }
 
