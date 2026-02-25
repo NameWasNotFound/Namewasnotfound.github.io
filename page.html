@@ -502,7 +502,6 @@ function cancelFetch() {
 
 async function loadAll() {
   const [hu, hc] = await Promise.all([fetchHtml(URL_U), fetchHtml(URL_C)]);
-
   if (hu) {
     matchesU = parseEvents(hu);
     fillSportSel('spU', matchesU);
@@ -513,15 +512,17 @@ async function loadAll() {
     fillSportSel('spC', matchesC);
     renderC();
   }
-
   if (!hu && !hc) {
     const bar = document.getElementById('scanBar');
     bar.className = 'err';
     document.getElementById('scanLabel').textContent = '✕ Kunde inte hämta matcher – kontrollera nätverksanslutningen/proxyn';
     return;
   }
-  setTimeout(() => document.getElementById('scanBar').className = 'done', 400);
+  
+  // Timeout borttagen – döljer "scanBar" direkt istället för att vänta 400 ms
+  document.getElementById('scanBar').className = 'done';
 }
+
 
 // ─── PARSE EVENTS PAGE ────────────────────────────────────────────────────────
 function parseEvents(html) {
