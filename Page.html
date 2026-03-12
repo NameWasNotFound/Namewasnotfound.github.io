@@ -746,23 +746,32 @@ async function loadAll() {
   fetchLevels([...matchesU, ...matchesC]);
 }
 
-// Enkel fetch för vanliga HTML-sidor (ingen <tr>-check)
-async function fetchPage(url) {
-  for (const mkProxy of PROXIES) {
-    try {
-      const r = await fetch(mkProxy(url), {
-        headers: { 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8' },
-      });
-      if (!r.ok) continue;
-      const text = await r.text();
-      if (text && text.length > 200) return text;
-    } catch(_) {}
-  }
-  return null;
+// Hämtar en HTML-sida – racear alla proxies parallellt med timeout
+async function fetchPage(url, timeoutMs = 8000) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    // Prova alla proxies parallellt, returnera den som svarar först
+    const result = await Promise.any(
+      PROXIES.map(async mkProxy => {
+        const r = await fetch(mkProxy(url), {
+          signal: ac.signal,
+          headers: { 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8' },
+        });
+        if (!r.ok) throw new Error('not ok');
+        const text = await r.text();
+        if (!text || text.length < 200) throw new Error('empty');
+        return text;
+      })
+    );
+    return result;
+  } catch(_) { return null; }
+  finally { clearTimeout(timer); }
 }
 
-// ─── LEVEL CACHE (localStorage) ──────────────────────────────────────────────
-const LEVEL_CACHE_KEY = 'ssi_level_cache';
+// ─── LEVEL CACHE (localStorage med timestamp) ─────────────────────────────────
+const LEVEL_CACHE_KEY = 'ssi_level_cache_v2';
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dagar
 
 function loadLevelCache() {
   try { return JSON.parse(localStorage.getItem(LEVEL_CACHE_KEY) || '{}'); } catch(_) { return {}; }
@@ -771,52 +780,49 @@ function saveLevelCache(cache) {
   try { localStorage.setItem(LEVEL_CACHE_KEY, JSON.stringify(cache)); } catch(_) {}
 }
 
-function applyLevelCache(matches) {
-  const cache = loadLevelCache();
-  matches.forEach(m => {
-    if ((m.level === null || m.level === undefined) && cache[m.eId] !== undefined) {
-      m.level = cache[m.eId];
-    }
-  });
+function extractLevelFromHtml(html) {
+  // Snabb regex – ingen DOMParser behövs
+  const m = html.match(/Level\s+(III|II|I|[123])/i);
+  if (!m) return null;
+  const v = m[1].toUpperCase();
+  return v === 'III' ? 3 : v === 'II' ? 2 : v === 'I' ? 1 : parseInt(v);
 }
 
 async function fetchLevels(matches) {
   const cache = loadLevelCache();
+  const now = Date.now();
 
-  // Applicera cache direkt
+  // 1. Applicera cache direkt för allt som är cachat och inte utgånget
   matches.forEach(m => {
-    if ((m.level === null || m.level === undefined) && cache[m.eId] !== undefined) {
-      m.level = cache[m.eId];
+    const entry = cache[m.eId];
+    if (entry && entry.level !== undefined && (now - entry.ts) < CACHE_TTL_MS) {
+      m.level = entry.level;
     }
   });
   renderU(); renderC();
 
-  // Hämta bara de som fortfarande saknar level
+  // 2. Bara hämta de som fortfarande saknar level (ej i cache eller utgånget)
   const need = matches.filter(m => m.level === null || m.level === undefined);
   if (!need.length) return;
 
-  await Promise.all(need.map(async m => {
-    try {
-      const html = await fetchPage(m.eventUrl);
-      if (!html) { m.level = null; cache[m.eId] = null; return; }
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      let level = null;
-      doc.querySelectorAll('*').forEach(el => {
-        if (level !== null || el.children.length > 0) return;
-        const t = el.textContent.trim();
-        const lm = t.match(/^Level\s+(I{1,3}|[123])$/i);
-        if (lm) {
-          const v = lm[1].toUpperCase();
-          level = v === 'I' ? 1 : v === 'II' ? 2 : v === 'III' ? 3 : parseInt(v);
+  // 3. Kör i parallella batchar om 8 – tillräckligt snabbt utan att spamma
+  const BATCH = 8;
+  for (let i = 0; i < need.length; i += BATCH) {
+    await Promise.all(need.slice(i, i + BATCH).map(async m => {
+      try {
+        const html = await fetchPage(m.eventUrl, 7000);
+        const level = html ? extractLevelFromHtml(html) : null;
+        m.level = level;
+        // Spara i cache bara om vi hittade en level (null = försök igen senare)
+        if (level !== null) {
+          cache[m.eId] = { level, ts: now };
         }
-      });
-      m.level = level;
-      if (level !== null) cache[m.eId] = level; // spara bara om vi hittade en
-    } catch(_) { m.level = null; }
-    renderU(); renderC();
-  }));
-
-  saveLevelCache(cache);
+      } catch(_) {}
+      renderU(); renderC();
+    }));
+    // Spara cache efter varje batch
+    saveLevelCache(cache);
+  }
 }
 
 // ─── PARSE EVENTS PAGE ────────────────────────────────────────────────────────
