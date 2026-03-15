@@ -545,6 +545,35 @@
   <div id="rc"></div>
 </div>
 
+<!-- Stage edit popup för jämförelseläget -->
+<div id="cmpEditOverlay" onclick="closeCmpEditPopup()" style="display:none;position:fixed;inset:0;z-index:400;"></div>
+<div id="cmpEditPopup" style="display:none;position:fixed;z-index:401;background:var(--surface);border:1px solid var(--accent2);border-radius:8px;padding:18px 20px;min-width:240px;box-shadow:0 8px 32px rgba(0,0,0,0.7);">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1px;color:var(--accent2);margin-bottom:14px;" id="cmpEditTitle">REDIGERA STATION</div>
+  <!-- Träffar -->
+  <div style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">TRÄFFAR</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+    <div><label style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--green);display:block;margin-bottom:3px;">A</label>
+      <input id="cmpEditA" type="number" min="0" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
+    <div><label style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:#aaa;display:block;margin-bottom:3px;">C</label>
+      <input id="cmpEditC" type="number" min="0" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
+    <div><label style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:#f90;display:block;margin-bottom:3px;">D</label>
+      <input id="cmpEditD" type="number" min="0" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
+    <div><label style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--accent);display:block;margin-bottom:3px;">M</label>
+      <input id="cmpEditM" type="number" min="0" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
+  </div>
+  <!-- Tid -->
+  <div style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--muted);letter-spacing:2px;margin-bottom:6px;">TID (sekunder)</div>
+  <input id="cmpEditTime" type="number" min="0" step="0.01" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;margin-bottom:14px;" oninput="cmpEditRecalc()"/>
+  <!-- Beräknad poäng preview -->
+  <div id="cmpEditPreview" style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--accent2);margin-bottom:14px;min-height:18px;"></div>
+  <!-- Knappar -->
+  <div style="display:flex;gap:8px;">
+    <button onclick="applyCmpEdit()" style="flex:1;background:var(--accent2);color:#000;border:none;padding:9px;border-radius:4px;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1px;cursor:pointer;">SPARA</button>
+    <button onclick="resetCmpEdit()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:9px 14px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;letter-spacing:1px;cursor:pointer;">ÅTERSTÄLL</button>
+    <button onclick="closeCmpEditPopup()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:9px 14px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;cursor:pointer;">STÄNG</button>
+  </div>
+</div>
+
 <div id="ov">
   <div class="ls"></div>
   <div class="ll">HÄMTAR RESULTAT...</div>
@@ -1165,6 +1194,9 @@ function goBack() {
   document.getElementById('panInfo').style.display = '';
   // Stäng jämförelse och rensa listan
   window.compareList = [];
+  window.hiddenStages = new Set();
+  window.hiddenCompareStages = new Set();
+  window.compareEdits = {};
   closeCompareModal();
   updateCompareBar();
   switchTab(backTab);
@@ -1451,8 +1483,16 @@ function renderBaseUI(){
   
   document.getElementById('rc').innerHTML=`
     <div class="match-header">
-      <div class="match-title">${esc(data.title)}</div>
-      <div class="match-meta">${esc(data.sourceUrl)} · ${new Date().toLocaleString('sv-SE')}</div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div class="match-title">${esc(data.title)}</div>
+          <div class="match-meta" id="matchMeta">${esc(data.sourceUrl)} · ${new Date().toLocaleString('sv-SE')}</div>
+        </div>
+        <button onclick="refreshMatch()" id="refreshBtn" title="Uppdatera resultat" style="background:transparent; border:1px solid var(--border); color:var(--muted); font-family:'IBM Plex Mono',monospace; font-size:0.68rem; letter-spacing:1px; padding:8px 14px; border-radius:3px; cursor:pointer; transition:all 0.15s; white-space:nowrap; margin-top:4px; display:flex; align-items:center; gap:7px;">
+          <svg id="refreshIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          UPPDATERA
+        </button>
+      </div>
     </div>
     <div class="summary-row">
       <div class="stat-box"><div class="stat-val">${data.totalCompetitors}</div><div class="stat-key">Skyttar</div></div>
@@ -1470,6 +1510,44 @@ function renderBaseUI(){
 
     
   af();
+}
+
+async function refreshMatch() {
+  if (!window.CMD || !window.CMD.sourceUrl) return;
+
+  const btn  = document.getElementById('refreshBtn');
+  const icon = document.getElementById('refreshIcon');
+  if (btn) { btn.disabled = true; btn.style.color = 'var(--accent2)'; btn.style.borderColor = 'var(--accent2)'; }
+  if (icon) icon.style.animation = 'spin 0.7s linear infinite';
+
+  // Spara filter-val innan renderBaseUI river ned DOM:en
+  const si = document.getElementById('sfS')?.value || '0';
+  const dv = document.getElementById('sfD')?.value || '';
+  const sourceUrl = window.CMD.sourceUrl;
+
+  try {
+    // fetchPage har ingen <tr>-check och racear proxies parallellt
+    const html = await fetchPage(sourceUrl, 15000);
+    if (!html) throw new Error('Kunde inte hämta');
+    const data = parseSSI(html, sourceUrl);
+    if (!data.totalCompetitors) throw new Error('Ingen data');
+    window.CMD = data;
+    renderBaseUI();
+    // Återställ filter efter att DOM byggts om
+    const sfS = document.getElementById('sfS');
+    const sfD = document.getElementById('sfD');
+    if (sfS) sfS.value = si;
+    if (sfD) sfD.value = dv;
+    af();
+  } catch(e) {
+    const meta = document.getElementById('matchMeta');
+    if (meta) meta.textContent = `✕ Uppdatering misslyckades · ${new Date().toLocaleString('sv-SE')}`;
+    // Återställ knappen manuellt vid fel (renderBaseUI körs ej)
+    const b = document.getElementById('refreshBtn');
+    const ic = document.getElementById('refreshIcon');
+    if (b) { b.disabled = false; b.style.color = ''; b.style.borderColor = ''; }
+    if (ic) ic.style.animation = '';
+  }
 }
 
 function toggleInfoPopup() {
@@ -1645,9 +1723,11 @@ function rtv(vn, competitors, isOverall){
       </td>`;
     
     if(isS) {
-      const scorePct = (isOverall && c.maxPtsTotal > 0) ? (c.rawPtsTotal / c.maxPtsTotal * 100).toFixed(1) + '%' : null;
+      const scorePctVal2 = (isOverall && c.maxPtsTotal > 0) ? (c.rawPtsTotal / c.maxPtsTotal * 100) : null;
+      const scorePct = scorePctVal2 !== null ? scorePctVal2.toFixed(1) + '%' : null;
+      const scorePctCol2 = scorePctVal2 === null ? 'var(--green)' : scorePctVal2 < 85 ? 'var(--accent)' : scorePctVal2 < 90 ? 'var(--accent2)' : 'var(--green)';
       h+=`<td class="n" onclick="openShooterModal(${ri})" style="cursor:pointer;color:var(--accent2);font-weight:bold">${hfs}</td><td class="n" onclick="openShooterModal(${ri})" style="cursor:pointer;">${tms}</td><td class="n" onclick="openShooterModal(${ri})" style="cursor:pointer;">${pts}</td>
-      ${isOverall ? `<td class="n" onclick="openShooterModal(${ri})" style="cursor:pointer;color:var(--green);font-size:0.78rem;">${scorePct || '—'}</td>` : ''}
+      ${isOverall ? `<td class="n" onclick="openShooterModal(${ri})" style="cursor:pointer;color:${scorePctCol2};font-size:0.78rem;">${scorePct || '—'}</td>` : ''}
       <td class="pct-cell pct-last" onclick="openShooterModal(${ri})" style="cursor:pointer;"><div class="pbw"><div class="pb"><div class="pf" style="width:${bw}%"></div></div><span class="pl">${ps}</span><span class="mob-pts">${pts} p</span></div></td>`;
     } else {
       h+=`<td class="n" onclick="openShooterModal(${ri})" style="cursor:pointer;color:var(--accent2);font-weight:bold">${pts}</td>
@@ -1659,11 +1739,15 @@ function rtv(vn, competitors, isOverall){
   el.innerHTML=h;
 }
 
-// ─── UPPGRADERAT POP-UP (MODAL) MED TRÄFFAR OCH TID ─────────────────────────
+// ─── SHOOTER MODAL ───────────────────────────────────────────────────────────
+window.hiddenStages = new Set(); // "shooterKey||stageName"
+
 function openShooterModal(idx) {
   const c = window.currentRenderedCompetitors[idx];
   if(!c) return;
-  
+
+  window._modalShooter = c;
+
   document.getElementById('smName').textContent = c.name;
   let badges = '';
   if(c.div && c.div !== 'null') badges += `<span class="badge">${esc(c.div)}</span>`;
@@ -1678,97 +1762,162 @@ function openShooterModal(idx) {
        if (oc && oc.detailedStages) details = oc.detailedStages;
     }
   }
+  window._modalDetails = details;
+  renderShooterModal();
+  document.getElementById('shooterModal').classList.add('on');
+}
 
+function stageHiddenKey(c, stageName) {
+  return shooterKey(c) + '||' + stageName;
+}
+
+function toggleStageHidden(stageName) {
+  const c = window._modalShooter;
+  if (!c) return;
+  const k = stageHiddenKey(c, stageName);
+  if (window.hiddenStages.has(k)) window.hiddenStages.delete(k);
+  else window.hiddenStages.add(k);
+  renderShooterModal();
+}
+
+function renderShooterModal() {
+  const c = window._modalShooter;
+  const details = window._modalDetails || [];
   const sl = document.getElementById('smStages');
-  if(details && details.length > 0) {
-    let totalMatchPts = 0;
-    let totalTime = 0;
-    let totalA = 0, totalC = 0, totalD = 0, totalM = 0, totalPT = 0;
+  if (!sl) return;
 
-    sl.innerHTML = details.map(d => {
-      let currentDynPct = d.dynPct !== undefined ? d.dynPct : d.pct;
-      let currentDynPts = d.dynMatchPts !== undefined ? d.dynMatchPts : d.matchPts;
+  if (!details.length) {
+    sl.innerHTML = `<div class="no-res-t">Ingen stage-data kunde hämtas för denna skytt.</div>`;
+    return;
+  }
 
-      totalMatchPts += (currentDynPts || 0);
+  let totalMatchPts = 0, totalTime = 0, totalRawPts = 0, totalMaxPts = 0;
+  let totalA = 0, totalC = 0, totalD = 0, totalM = 0, totalPT = 0;
+
+  const rows = details.map(d => {
+    const isHidden = window.hiddenStages.has(stageHiddenKey(c, d.stageName));
+    const currentDynPct = d.dynPct !== undefined ? d.dynPct : (d.pct || 0);
+    const currentDynPts = d.dynMatchPts !== undefined ? d.dynMatchPts : (d.matchPts || 0);
+
+    if (!isHidden) {
+      totalMatchPts += currentDynPts;
       if (d.time) totalTime += d.time;
-      if (d.hits) {
-        totalA  += d.hits.a  || 0;
-        totalC  += d.hits.c  || 0;
-        totalD  += d.hits.d  || 0;
-        totalM  += d.hits.m  || 0;
-        totalPT += d.hits.pt || 0;
-      }
-      
-      let hitStr = d.hits 
-          ? `A: ${d.hits.a} &nbsp; C: ${d.hits.c} &nbsp; D: ${d.hits.d} &nbsp; M: ${d.hits.m}` + (d.hits.pt > 0 ? ` &nbsp; <span style="color:var(--accent)">PT: ${d.hits.pt}</span>` : '') 
-          : 'Inga träffdata';
-          
-      let pctStr = currentDynPct > 0 ? currentDynPct.toFixed(2) + '%' : '0.00%';
-      let timeStr = d.time ? d.time.toFixed(2) + 's' : '—';
-      let rawPtsStr = d.pts !== null ? d.pts : '0';
-      let hfStr = d.hf !== null ? d.hf.toFixed(4) : '—';
-      let stagePtsStr = currentDynPts ? currentDynPts.toFixed(4) : '0.0000';
-
-      const isZero = (currentDynPts === 0 || !d.time);
-
-      return `<div class="sm-stage-row" ${isZero ? 'style="opacity:0.4"' : ''}>
-                <div style="flex:1">
-                  <div class="sm-stg-name">${esc(d.stageName)}</div>
-                  <div style="font-size:0.75rem; color:var(--muted); margin-top:6px; font-family:'IBM Plex Mono', monospace;">
-                    ${hitStr}
-                  </div>
-                  <div style="font-size:0.75rem; color:var(--muted); margin-top:4px; font-family:'IBM Plex Mono', monospace;">
-                    PTS: <span style="color:var(--text)">${rawPtsStr}</span> &nbsp;•&nbsp; TID: <span style="color:var(--text)">${timeStr}</span> &nbsp;•&nbsp; HF: <span style="color:var(--text)">${hfStr}</span>
-                  </div>
-                </div>
-                <div style="text-align:right">
-                  <div class="sm-stg-val" style="color:var(--accent2);">${pctStr}</div>
-                  <div style="font-size:0.8rem; color:var(--text); margin-top:6px; font-family:'IBM Plex Mono', monospace;">${stagePtsStr} stg p</div>
-                </div>
-              </div>`;
-    }).join('');
-
-    // Räkna ut poängprocent jämfört med vinnaren i overall
-    let matchPct = 0;
-    const overallDiv = window.CMD.divisions.find(d => d.name.toUpperCase().includes('OVERALL'));
-    if (overallDiv && overallDiv.competitors.length > 0) {
-      const winner = overallDiv.competitors[0];
-      const winnerPts = winner.dynTotalPts !== undefined ? winner.dynTotalPts : winner.pts;
-      if (winnerPts > 0) matchPct = (totalMatchPts / winnerPts) * 100;
+      if (d.pts != null) totalRawPts += parseFloat(d.pts);
+      if (d.stageMaxPts) totalMaxPts += d.stageMaxPts;
+      if (d.hits) { totalA += d.hits.a||0; totalC += d.hits.c||0; totalD += d.hits.d||0; totalM += d.hits.m||0; totalPT += d.hits.pt||0; }
     }
 
-    const hasTotalHits = totalA + totalC + totalD + totalM + totalPT > 0;
-    const hasTotalTime = totalTime > 0;
+    const hitStr = d.hits
+      ? `A: ${d.hits.a} &nbsp; C: ${d.hits.c} &nbsp; D: ${d.hits.d} &nbsp; M: ${d.hits.m}` + (d.hits.pt > 0 ? ` &nbsp; <span style="color:var(--accent)">PT: ${d.hits.pt}</span>` : '')
+      : 'Inga träffdata';
+    const pctStr    = currentDynPct > 0 ? currentDynPct.toFixed(2) + '%' : '0.00%';
+    const timeStr   = d.time ? d.time.toFixed(2) + 's' : '—';
+    const rawPtsStr = d.pts !== null ? d.pts : '0';
+    const hfStr     = d.hf !== null ? d.hf.toFixed(4) : '—';
+    const stagePtsStr = currentDynPts ? currentDynPts.toFixed(4) : '0.0000';
+    const scorePctVal = (d.stageMaxPts > 0 && d.pts != null)
+      ? parseFloat(d.pts) / d.stageMaxPts * 100 : null;
+    const scorePctStr = scorePctVal !== null ? scorePctVal.toFixed(1) + '%' : null;
+    const scorePctCol = scorePctVal === null ? 'var(--green)' : scorePctVal < 85 ? 'var(--accent)' : scorePctVal < 90 ? 'var(--accent2)' : 'var(--green)';
 
-    sl.innerHTML += `
-      <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-        ${hasTotalHits ? `
-        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:4px; padding:12px 14px; grid-column:1/-1;">
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:0.6rem; color:var(--muted); letter-spacing:2px; margin-bottom:8px;">TOTALA TRÄFFAR</div>
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:0.85rem; display:flex; gap:14px; flex-wrap:wrap;">
-            <span><span style="color:var(--green)">A</span> ${totalA}</span>
-            <span><span style="color:#aaa">C</span> ${totalC}</span>
-            <span><span style="color:#f90">D</span> ${totalD}</span>
-            <span><span style="color:var(--accent)">M</span> ${totalM}</span>
-            ${totalPT > 0 ? `<span><span style="color:#c792ea">PT</span> ${totalPT}</span>` : ''}
-          </div>
-        </div>` : ''}
-        ${hasTotalTime ? `
-        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:4px; padding:12px 14px;">
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:0.6rem; color:var(--muted); letter-spacing:2px; margin-bottom:6px;">TOTAL TID</div>
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:var(--text); letter-spacing:1px;">${totalTime.toFixed(2)}<span style="font-size:0.8rem; color:var(--muted); font-family:'IBM Plex Mono',monospace;">s</span></div>
-        </div>` : ''}
-        <div style="background:rgba(255,209,0,0.06); border:1px solid var(--accent2); border-radius:4px; padding:12px 14px; ${!hasTotalTime ? 'grid-column:1/-1;' : ''}">
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:0.6rem; color:var(--accent2); letter-spacing:2px; margin-bottom:6px;">MATCH %</div>
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:var(--accent2); letter-spacing:1px;">${matchPct.toFixed(2)}<span style="font-size:0.8rem; font-family:'IBM Plex Mono',monospace;">%</span></div>
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:0.7rem; color:var(--muted); margin-top:2px;">${totalMatchPts.toFixed(4)} p</div>
-        </div>
-      </div>`;
-  } else {
-    sl.innerHTML = `<div class="no-res-t">Ingen stage-data kunde hämtas för denna skytt.</div>`;
+    const isZero = currentDynPts === 0 || !d.time;
+
+    return `<div class="sm-stage-row" data-stage="${esc(d.stageName)}"
+               style="${isHidden ? 'opacity:0.35; background:rgba(255,77,0,0.04); border-left-color:var(--accent);' : isZero ? 'opacity:0.4;' : ''}"
+               ontouchstart="smSwipeStart(event, this)"
+               ontouchmove="smSwipeMove(event, this)"
+               ontouchend="smSwipeEnd(event, this, '${esc(d.stageName)}')"
+             >
+               <div style="flex:1; pointer-events:none;">
+                 <div style="display:flex; align-items:center; gap:8px;">
+                   <div class="sm-stg-name">${esc(d.stageName)}</div>
+                   ${isHidden ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:0.55rem;color:var(--accent);border:1px solid var(--accent);padding:1px 5px;border-radius:2px;">DOLD</span>` : ''}
+                 </div>
+                 <div style="font-size:0.75rem; color:var(--muted); margin-top:6px; font-family:'IBM Plex Mono', monospace;">${hitStr}</div>
+                 <div style="font-size:0.75rem; color:var(--muted); margin-top:4px; font-family:'IBM Plex Mono', monospace;">
+                   PTS: <span style="color:var(--text)">${rawPtsStr}</span>
+                   ${scorePctStr ? `<span style="color:${scorePctCol}; margin-left:4px;">(${scorePctStr})</span>` : ''}
+                   &nbsp;•&nbsp; TID: <span style="color:var(--text)">${timeStr}</span>
+                   &nbsp;•&nbsp; HF: <span style="color:var(--text)">${hfStr}</span>
+                 </div>
+               </div>
+               <div style="text-align:right; pointer-events:none;">
+                 <div class="sm-stg-val" style="color:var(--accent2);">${pctStr}</div>
+                 <div style="font-size:0.8rem; color:var(--text); margin-top:6px; font-family:'IBM Plex Mono', monospace;">${stagePtsStr} stg p</div>
+               </div>
+             </div>`;
+  }).join('');
+
+  // Summerings-kort
+  const hasTotalHits = totalA + totalC + totalD + totalM + totalPT > 0;
+  const hasTotalTime = totalTime > 0;
+  const scorePct = totalMaxPts > 0 ? (totalRawPts / totalMaxPts * 100) : 0;
+  const scorePctColor = scorePct < 85 ? 'var(--accent)' : scorePct < 90 ? 'var(--accent2)' : 'var(--green)';
+  const scorePctBorder = scorePct < 85 ? 'var(--accent)' : scorePct < 90 ? 'var(--accent2)' : 'var(--green)';
+  const scorePctBg = scorePct < 85 ? 'rgba(255,77,0,0.05)' : scorePct < 90 ? 'rgba(255,209,0,0.05)' : 'rgba(0,230,118,0.05)';
+  const hasScorePct = totalMaxPts > 0;
+  let matchPct = 0;
+  const overallDiv = window.CMD && window.CMD.divisions.find(d => d.name.toUpperCase().includes('OVERALL'));
+  if (overallDiv && overallDiv.competitors.length > 0) {
+    const winner = overallDiv.competitors[0];
+    const winnerPts = winner.dynTotalPts !== undefined ? winner.dynTotalPts : winner.pts;
+    if (winnerPts > 0) matchPct = (totalMatchPts / winnerPts) * 100;
   }
-  
-  document.getElementById('shooterModal').classList.add('on');
+
+  const hiddenCount = details.filter(d => window.hiddenStages.has(stageHiddenKey(c, d.stageName))).length;
+  const swipeHint = `<div style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--muted);text-align:center;margin-bottom:12px;letter-spacing:1px;">← SWIPA STAGE FÖR ATT DÖLJA →${hiddenCount > 0 ? ` &nbsp;·&nbsp; <span style="color:var(--accent)">${hiddenCount} DOLD${hiddenCount>1?'A':''}</span>` : ''}</div>`;
+
+  sl.innerHTML = swipeHint + rows + `
+    <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      ${hasTotalHits ? `
+      <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:4px; padding:12px 14px; grid-column:1/-1;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:0.6rem; color:var(--muted); letter-spacing:2px; margin-bottom:8px;">TOTALA TRÄFFAR</div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:0.85rem; display:flex; gap:14px; flex-wrap:wrap;">
+          <span><span style="color:var(--green)">A</span> ${totalA}</span>
+          <span><span style="color:#aaa">C</span> ${totalC}</span>
+          <span><span style="color:#f90">D</span> ${totalD}</span>
+          <span><span style="color:var(--accent)">M</span> ${totalM}</span>
+          ${totalPT > 0 ? `<span><span style="color:#c792ea">PT</span> ${totalPT}</span>` : ''}
+        </div>
+      </div>` : ''}
+      ${hasTotalTime ? `
+      <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:4px; padding:12px 14px;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:0.6rem; color:var(--muted); letter-spacing:2px; margin-bottom:6px;">TOTAL TID</div>
+        <div style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:var(--text); letter-spacing:1px;">${totalTime.toFixed(2)}<span style="font-size:0.8rem; color:var(--muted); font-family:'IBM Plex Mono',monospace;">s</span></div>
+      </div>` : ''}
+      ${hasScorePct ? `
+      <div style="background:${scorePctBg}; border:1px solid ${scorePctBorder}; border-radius:4px; padding:12px 14px; ${!hasTotalTime ? 'grid-column:1/-1;' : ''}">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:0.6rem; color:${scorePctColor}; letter-spacing:2px; margin-bottom:6px;">POÄNG %</div>
+        <div style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:${scorePctColor}; letter-spacing:1px;">${scorePct.toFixed(1)}<span style="font-size:0.8rem; font-family:'IBM Plex Mono',monospace;">%</span></div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:0.7rem; color:var(--muted); margin-top:2px;">${totalRawPts.toFixed(0)} / ${totalMaxPts.toFixed(0)} p</div>
+      </div>` : ''}
+      <div style="background:rgba(255,209,0,0.06); border:1px solid var(--accent2); border-radius:4px; padding:12px 14px; ${!hasScorePct && !hasTotalTime ? 'grid-column:1/-1;' : ''}">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:0.6rem; color:var(--accent2); letter-spacing:2px; margin-bottom:6px;">MATCH %</div>
+        <div style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:var(--accent2); letter-spacing:1px;">${matchPct.toFixed(2)}<span style="font-size:0.8rem; font-family:'IBM Plex Mono',monospace;">%</span></div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:0.7rem; color:var(--muted); margin-top:2px;">${totalMatchPts.toFixed(4)} p</div>
+      </div>
+    </div>`;
+
+  // Bind click-to-toggle för desktop
+  sl.querySelectorAll('.sm-stage-row').forEach(row => {
+    row.addEventListener('click', () => {
+      toggleStageHidden(row.dataset.stage);
+    });
+  });
+}
+
+// Swipe-hantering
+let _swX = 0;
+function smSwipeStart(e, el) { _swX = e.touches[0].clientX; el._swiped = false; }
+function smSwipeMove(e, el) {
+  const dx = e.touches[0].clientX - _swX;
+  if (Math.abs(dx) > 10) { el.style.transition = 'none'; el.style.transform = `translateX(${dx * 0.4}px)`; }
+}
+function smSwipeEnd(e, el, stageName) {
+  const dx = e.changedTouches[0].clientX - _swX;
+  el.style.transition = 'transform 0.2s';
+  el.style.transform = '';
+  if (Math.abs(dx) > 60) toggleStageHidden(stageName);
 }
 
 // Funktion för att stänga fönstret
@@ -1792,6 +1941,160 @@ function esc(s){return !s?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 
 // ─── JÄMFÖR SKYTTAR FUNKTIONER ─────────────────────────────────────────────
 window.compareList = [];
+window.hiddenCompareStages = new Set();
+
+function toggleCompareStage(stageName) {
+  if (window.hiddenCompareStages.has(stageName)) window.hiddenCompareStages.delete(stageName);
+  else window.hiddenCompareStages.add(stageName);
+}
+
+function setCmpEdit(key, field, val) {
+  if (!window.compareEdits) window.compareEdits = {};
+  if (!window.compareEdits[key]) window.compareEdits[key] = {};
+  window.compareEdits[key][field] = val;
+}
+
+function clearCmpEdit(key) {
+  if (window.compareEdits) delete window.compareEdits[key];
+}
+
+function clearAllCmpEdits() {
+  window.compareEdits = {};
+  openCompareModal();
+}
+
+// ─── STAGE EDIT POPUP ────────────────────────────────────────────────────────
+let _cmpEditKey = null;
+
+function openCmpEditPopup(shooterIdx, stgName, event) {
+  event.stopPropagation();
+  const s = window.compareList[shooterIdx];
+  if (!s) return;
+
+  _cmpEditKey = shooterKey(s) + '||' + stgName;
+  if (!window.compareEdits) window.compareEdits = {};
+
+  const sds = (s.detailedStages||[]).find(x => x.stageName === stgName);
+  const ed  = window.compareEdits[_cmpEditKey] || {};
+  const hits = sds && sds.hits;
+
+  document.getElementById('cmpEditA').value    = ed.a    !== undefined ? ed.a    : (hits ? hits.a : '');
+  document.getElementById('cmpEditC').value    = ed.c    !== undefined ? ed.c    : (hits ? hits.c : '');
+  document.getElementById('cmpEditD').value    = ed.d    !== undefined ? ed.d    : (hits ? hits.d : '');
+  document.getElementById('cmpEditM').value    = ed.m    !== undefined ? ed.m    : (hits ? hits.m : '');
+  document.getElementById('cmpEditTime').value = ed.time !== undefined ? ed.time : (sds && sds.time ? sds.time.toFixed(2) : '');
+  document.getElementById('cmpEditTitle').textContent = s.name.split(' ')[0] + ' · ' + stgName;
+
+  window._cmpEditSds = sds;
+  cmpEditRecalc();
+
+  const popup = document.getElementById('cmpEditPopup');
+  popup.style.display = 'block';
+  document.getElementById('cmpEditOverlay').style.display = 'block';
+
+  // Positionera popup nära klicket men inom viewport
+  requestAnimationFrame(() => {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let x = event.clientX + 10, y = event.clientY + 10;
+    const pw = popup.offsetWidth, ph = popup.offsetHeight;
+    if (x + pw > vw - 8) x = vw - pw - 8;
+    if (y + ph > vh - 8) y = vh - ph - 8;
+    if (x < 8) x = 8; if (y < 8) y = 8;
+    popup.style.left = x + 'px';
+    popup.style.top  = y + 'px';
+  });
+}
+
+// Swipe-hantering för stage-namnkolumnen i jämförelsetabellen
+let _cmpSwX = 0;
+function cmpSwipeStart(e, el) { _cmpSwX = e.touches[0].clientX; }
+function cmpSwipeMove(e, el) {
+  const dx = e.touches[0].clientX - _cmpSwX;
+  if (Math.abs(dx) > 8) { el.style.transition='none'; el.style.transform=`translateX(${dx*0.4}px)`; }
+}
+function cmpSwipeEnd(e, el, stgName) {
+  const dx = e.changedTouches[0].clientX - _cmpSwX;
+  el.style.transition = 'transform 0.2s';
+  el.style.transform = '';
+  if (Math.abs(dx) > 55) { toggleCompareStage(stgName); openCompareModal(); }
+}
+
+function cmpEditRecalc() {
+  const sds = window._cmpEditSds;
+  const maxPts = sds ? (sds.stageMaxPts || 0) : 0;
+  const maxTargets = maxPts > 0 ? Math.round(maxPts / 5) : 0;
+
+  const a = parseInt(document.getElementById('cmpEditA').value) || 0;
+  const c = parseInt(document.getElementById('cmpEditC').value) || 0;
+  const d = parseInt(document.getElementById('cmpEditD').value) || 0;
+  const m = parseInt(document.getElementById('cmpEditM').value) || 0;
+  const t = parseFloat(document.getElementById('cmpEditTime').value) || 0;
+  const total = a + c + d + m;
+
+  const saveBtn = document.querySelector('#cmpEditPopup button[onclick="applyCmpEdit()"]');
+  const tooMany = maxTargets > 0 && total > maxTargets;
+  const tooFew  = maxTargets > 0 && total < maxTargets && total > 0;
+  const invalid  = tooMany || tooFew;
+
+  if (saveBtn) {
+    saveBtn.disabled = invalid;
+    saveBtn.style.opacity = invalid ? '0.35' : '1';
+    saveBtn.style.cursor  = invalid ? 'not-allowed' : 'pointer';
+  }
+
+  const pts = (a * 5) + (c * 3) + (d * 1) + (m * -10);
+  const hf  = t > 0 ? (pts / t) : 0;
+  const pct = maxPts > 0 ? (pts / maxPts * 100) : 0;
+  const col = pct < 85 ? 'var(--accent)' : pct < 90 ? 'var(--accent2)' : 'var(--green)';
+  const targetCol = tooMany ? 'var(--accent)' : tooFew ? 'var(--accent2)' : 'var(--green)';
+  const targetInfo = maxTargets > 0
+    ? `<span style="color:${targetCol};font-size:0.68rem;">${total}/${maxTargets} mål${tooMany ? ' ⚠ för många' : tooFew ? ' ⚠ för få' : ' ✓'}</span>  `
+    : '';
+  document.getElementById('cmpEditPreview').innerHTML =
+    targetInfo +
+    (!invalid ? `PTS: <span style="color:var(--text);font-weight:bold;">${pts}</span>` +
+    (t > 0 ? `  HF: <span style="color:var(--accent2);">${hf.toFixed(4)}</span>` : '') +
+    (maxPts > 0 ? `  <span style="color:${col};">${pct.toFixed(1)}%</span>` : '') : '');
+}
+
+function applyCmpEdit() {
+  if (!_cmpEditKey) return;
+  const sds = window._cmpEditSds;
+  const maxPts = sds ? (sds.stageMaxPts || 0) : 0;
+  const maxTargets = maxPts > 0 ? Math.round(maxPts / 5) : 0;
+  const a = parseInt(document.getElementById('cmpEditA').value) || 0;
+  const c = parseInt(document.getElementById('cmpEditC').value) || 0;
+  const d = parseInt(document.getElementById('cmpEditD').value) || 0;
+  const m = parseInt(document.getElementById('cmpEditM').value) || 0;
+  const t = parseFloat(document.getElementById('cmpEditTime').value);
+  if (maxTargets > 0 && ((a + c + d + m) > maxTargets || (a + c + d + m) < maxTargets)) return;
+  if (!window.compareEdits) window.compareEdits = {};
+  const pts = (a*5) + (c*3) + (d*1) + (m*-10);
+  const ed = { a, c, d, m, pts };
+  if (!isNaN(t) && t > 0) ed.time = t;
+  window.compareEdits[_cmpEditKey] = ed;
+  closeCmpEditPopup();
+  openCompareModal();
+}
+
+function resetCmpEdit() {
+  if (_cmpEditKey && window.compareEdits) delete window.compareEdits[_cmpEditKey];
+  // Återställ fälten till originalet
+  const sds = window._cmpEditSds;
+  const hits = sds && sds.hits;
+  document.getElementById('cmpEditA').value    = hits ? hits.a : '';
+  document.getElementById('cmpEditC').value    = hits ? hits.c : '';
+  document.getElementById('cmpEditD').value    = hits ? hits.d : '';
+  document.getElementById('cmpEditM').value    = hits ? hits.m : '';
+  document.getElementById('cmpEditTime').value = sds && sds.time ? sds.time.toFixed(2) : '';
+  cmpEditRecalc();
+}
+
+function closeCmpEditPopup() {
+  document.getElementById('cmpEditPopup').style.display = 'none';
+  document.getElementById('cmpEditOverlay').style.display = 'none';
+  _cmpEditKey = null;
+}
 
 function shooterKey(c) {
   const d = (c.div||'').trim().toUpperCase().replace(/[+\-]$/,'');
@@ -1851,7 +2154,8 @@ function clearCompare() {
 
 function openCompareModal() {
   if (window.compareList.length < 2) return;
-  
+  if (!window.compareEdits) window.compareEdits = {}; // "sKey||stageName" → {pts, time}
+
   let modal = document.getElementById('compareModal');
   if(!modal) {
      modal = document.createElement('div');
@@ -1859,160 +2163,194 @@ function openCompareModal() {
      document.body.appendChild(modal);
   }
 
-  // 1. Hitta gemensamma stages (där ALLA valda har ett resultat > 0 på tid eller poäng)
+  // 1. Gemensamma stages minus dolda
   let commonStageNames = [];
   const firstShooter = window.compareList[0];
-  
   if(firstShooter.detailedStages) {
      firstShooter.detailedStages.forEach(ds => {
-        const allShot = window.compareList.every(shooter => {
-           const sds = (shooter.detailedStages || []).find(x => x.stageName === ds.stageName);
-           // Måste finnas och ha en tid registrerad för att räknas som skjuten
-           return sds && (sds.time > 0 || sds.hf > 0 || sds.pts > 0); 
+        const hiddenForAny = window.compareList.some(s => window.hiddenStages.has(stageHiddenKey(s, ds.stageName)));
+        if (hiddenForAny) return;
+        const allShot = window.compareList.every(s => {
+           const sds = (s.detailedStages||[]).find(x => x.stageName === ds.stageName);
+           return sds && (sds.time > 0 || sds.hf > 0 || sds.pts > 0);
         });
         if(allShot) commonStageNames.push(ds.stageName);
      });
   }
+  const hiddenStageCount = (firstShooter.detailedStages||[]).filter(ds =>
+    window.compareList.some(s => window.hiddenStages.has(stageHiddenKey(s, ds.stageName)))
+  ).length;
 
-  // 2. Bygg datan och summera resultaten
-  let totals = window.compareList.map(s => ({ name: s.name, totalPts: 0, div: s.div, rawPts: 0, maxPts: 0, totalTime: 0, totalA:0, totalC:0, totalD:0, totalM:0, totalPT:0 }));
+  // Hjälp: hämta effektivt pts och tid för en skytt på en stage (med edit-override)
+  function effectiveVals(s, stgName) {
+    const sds = (s.detailedStages||[]).find(x => x.stageName === stgName);
+    const ek = shooterKey(s) + '||' + stgName;
+    const ed = window.compareEdits[ek] || {};
+    const rawPts  = ed.pts  !== undefined ? ed.pts  : (sds && sds.pts  != null ? parseFloat(sds.pts)  : 0);
+    const time    = ed.time !== undefined ? ed.time : (sds ? (sds.time || 0) : 0);
+    const maxPts  = sds ? (sds.stageMaxPts || 0) : 0;
+    const hf      = sds ? (sds.hf || 0) : 0;
+    // Räkna om matchPts: om maxPts finns, skala rawPts mot stageMaxHF
+    const matchPts = (sds && sds.dynMatchPts !== undefined)
+      ? (ed.pts !== undefined && maxPts > 0 ? (rawPts / maxPts) * sds.stageMaxPts : sds.dynMatchPts)
+      : (sds ? (sds.matchPts || 0) : 0);
+    const isEdited = ed.pts !== undefined || ed.time !== undefined;
+    return { rawPts, time, maxPts, hf, matchPts: ed.pts !== undefined && maxPts > 0 ? rawPts : matchPts, isEdited, sds };
+  }
+
+  // 2. Summera per skytt
+  let totals = window.compareList.map(s => ({ name:s.name, div:s.div, totalPts:0, rawPts:0, maxPts:0, totalTime:0, totalA:0,totalC:0,totalD:0,totalM:0,totalPT:0 }));
   let stagesHtml = '';
-  
-  commonStageNames.forEach(stgName => {
-     stagesHtml += `<tr><td style="font-weight:bold; color:var(--text); text-align:left;">${stgName}</td>`;
-     
-     // Hitta vem som sköt stagen bäst i jämförelsen
-     let maxHf = 0;
-     window.compareList.forEach(s => {
-        const sds = s.detailedStages.find(x => x.stageName === stgName);
-        if(sds && sds.hf > maxHf) maxHf = sds.hf;
-     });
+  const hasAnyEdit = Object.keys(window.compareEdits).length > 0;
 
-     window.compareList.forEach((s, idx) => {
-        const sds = s.detailedStages.find(x => x.stageName === stgName);
-        // Använd dynMatchPts om det finns (från ditt filter), annars vanliga matchPts
-        const stgPts = sds ? (sds.dynMatchPts !== undefined ? sds.dynMatchPts : sds.matchPts) : 0; 
-        totals[idx].totalPts += stgPts;
-        totals[idx].rawPts   += (sds && sds.pts != null ? parseFloat(sds.pts) : 0);
-        totals[idx].maxPts   += (sds && sds.stageMaxPts ? sds.stageMaxPts : 0);
-        if (sds && sds.time) totals[idx].totalTime += sds.time;
-        if (sds && sds.hits) {
-          totals[idx].totalA  += sds.hits.a  || 0;
-          totals[idx].totalC  += sds.hits.c  || 0;
-          totals[idx].totalD  += sds.hits.d  || 0;
-          totals[idx].totalM  += sds.hits.m  || 0;
-          totals[idx].totalPT += sds.hits.pt || 0;
+  commonStageNames.forEach(stgName => {
+    const isCmpHidden = window.hiddenCompareStages && window.hiddenCompareStages.has(stgName);
+
+    // Finn bästa matchPts på denna stage för winner-markering
+    let maxMatchPts = 0;
+    window.compareList.forEach(s => {
+      if (isCmpHidden) return;
+      const v = effectiveVals(s, stgName);
+      if (v.matchPts > maxMatchPts) maxMatchPts = v.matchPts;
+    });
+
+    const rowBg = isCmpHidden ? 'opacity:0.3;background:rgba(255,77,0,0.03);' : '';
+    const hiddenBadge = isCmpHidden ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:0.5rem;color:var(--accent);border:1px solid var(--accent);padding:1px 4px;border-radius:2px;margin-left:6px;">DOLD</span>` : '';
+    const safeStg = stgName.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    stagesHtml += `<tr style="${rowBg}" data-stage="${esc(stgName)}">
+      <td style="font-weight:bold;color:${isCmpHidden?'var(--muted)':'var(--text)'};text-align:left;user-select:none;touch-action:pan-y;"
+          ontouchstart="cmpSwipeStart(event,this)"
+          ontouchmove="cmpSwipeMove(event,this)"
+          ontouchend="cmpSwipeEnd(event,this,'${safeStg}')"
+      >${stgName}${hiddenBadge}</td>`;
+
+    window.compareList.forEach((s, idx) => {
+      const v = effectiveVals(s, stgName);
+      const ek = shooterKey(s) + '||' + stgName;
+      const isEdited = v.isEdited;
+
+      if (!isCmpHidden) {
+        totals[idx].totalPts  += v.matchPts;
+        totals[idx].rawPts    += v.rawPts;
+        totals[idx].maxPts    += v.maxPts;
+        totals[idx].totalTime += v.time;
+        if (v.sds && v.sds.hits) {
+          totals[idx].totalA  += v.sds.hits.a||0;
+          totals[idx].totalC  += v.sds.hits.c||0;
+          totals[idx].totalD  += v.sds.hits.d||0;
+          totals[idx].totalM  += v.sds.hits.m||0;
+          totals[idx].totalPT += v.sds.hits.pt||0;
         }
-        
-        const hf = sds && sds.hf ? sds.hf.toFixed(4) : '0.0000';
-        const ptsStr = stgPts ? stgPts.toFixed(2) : '0.00';
-        const stagePct = sds ? (sds.dynPct !== undefined ? sds.dynPct : (sds.pct || 0)) : 0;
-        const pctStr = stagePct > 0 ? stagePct.toFixed(2) + '%' : '0.00%';
-        const isWinner = sds && sds.hf === maxHf && maxHf > 0;
-        const h = sds && sds.hits;
-        const tid = sds && sds.time ? sds.time.toFixed(2) + 's' : '—';
-        const hitsStr = h
-          ? `<span style="color:var(--green)">A${h.a}</span> <span style="color:#aaa">C${h.c}</span> <span style="color:#f90">D${h.d}</span> <span style="color:var(--accent)">M${h.m}</span> <span style="color:#c792ea">P${h.pt}</span> <span style="color:var(--muted)">${tid}</span>`
-          : `<span style="color:var(--muted)">${tid}</span>`;
-        
-        stagesHtml += `<td class="${isWinner ? 'winner-cell' : ''}">
-          <div style="font-size:0.95rem; font-weight:bold; margin-bottom:3px;">${hitsStr}</div>
-          <div style="font-size:0.78rem; color:${isWinner ? 'var(--accent2)' : 'var(--text)'}; font-weight:bold; margin-bottom:2px;">${pctStr}</div>
-          <div style="font-size:0.65rem; color:var(--muted)">${ptsStr} p &nbsp;·&nbsp; ${hf} HF</div>
-        </td>`;
-     });
-     stagesHtml += `</tr>`;
+      }
+
+      const isWinner = !isCmpHidden && v.matchPts === maxMatchPts && maxMatchPts > 0;
+      const ptsDisp  = v.rawPts.toFixed(0);
+      const pct      = v.maxPts > 0 ? (v.rawPts / v.maxPts * 100) : 0;
+      const pctCol   = pct < 85 ? 'var(--accent)' : pct < 90 ? 'var(--accent2)' : 'var(--green)';
+      const editStyle = isEdited ? 'background:rgba(255,209,0,0.06);border-left:2px solid var(--accent2);' : '';
+
+      // Träffar – visa edit-overrides om de finns
+      const ed = window.compareEdits[ek] || {};
+      const dispA  = ed.a  !== undefined ? ed.a  : (v.sds && v.sds.hits ? v.sds.hits.a  : '—');
+      const dispC  = ed.c  !== undefined ? ed.c  : (v.sds && v.sds.hits ? v.sds.hits.c  : '—');
+      const dispD  = ed.d  !== undefined ? ed.d  : (v.sds && v.sds.hits ? v.sds.hits.d  : '—');
+      const dispM  = ed.m  !== undefined ? ed.m  : (v.sds && v.sds.hits ? v.sds.hits.m  : '—');
+      const timeDisp = v.time > 0 ? v.time.toFixed(2) + 's' : '—';
+      const hasHitData = v.sds && v.sds.hits;
+
+      stagesHtml += `<td class="${isWinner?'winner-cell':''}" style="${editStyle}cursor:pointer;" onclick="openCmpEditPopup(${idx},'${safeStg}',event)">
+        <div style="pointer-events:none;">
+          <div style="font-size:0.8rem;font-family:'IBM Plex Mono',monospace;margin-bottom:3px;">
+            ${hasHitData || ed.a !== undefined ? `<span style="color:var(--green)">A${dispA}</span> <span style="color:#aaa">C${dispC}</span> <span style="color:#f90">D${dispD}</span> <span style="color:var(--accent)">M${dispM}</span>` : '<span style="color:var(--muted)">—</span>'}
+          </div>
+          <div style="font-size:0.75rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);">${timeDisp}</div>
+          <div style="font-size:0.75rem;font-family:'IBM Plex Mono',monospace;font-weight:bold;color:${isEdited?'var(--accent2)':'var(--text)'};">${ptsDisp} p</div>
+          ${v.maxPts > 0 ? `<div style="font-size:0.68rem;font-family:'IBM Plex Mono',monospace;color:${pctCol};">${pct.toFixed(1)}%</div>` : ''}
+          ${isEdited ? `<div style="font-size:0.55rem;color:var(--accent2);letter-spacing:1px;font-family:'IBM Plex Mono',monospace;">REDIGERAD</div>` : ''}
+        </div>
+      </td>`;
+    });
+    stagesHtml += `</tr>`;
   });
 
-  // Hitta vem som har högst totalpoäng av dessa gemensamma stages
+  // 3. Summerings-rader
   let maxTotal = 0;
   totals.forEach(t => { if(t.totalPts > maxTotal) maxTotal = t.totalPts; });
 
-  // Bygg rubriker
-  let headersHtml = `<th style="text-align:left;">STAGES (${commonStageNames.length} gemensamma)</th>`;
+  let headersHtml = `<th style="text-align:left;min-width:120px;">STAGE</th>`;
   window.compareList.forEach(s => {
-     headersHtml += `<th><div style="color:var(--text); font-family:'Bebas Neue', sans-serif; font-size:1.4rem; letter-spacing:1px;">${s.name.split(' ')[0]}</div><div style="font-size:0.6rem; color:var(--muted)">${s.div||''}</div></th>`;
+     headersHtml += `<th style="min-width:110px;"><div style="color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:1px;">${s.name.split(' ')[0]}</div><div style="font-size:0.6rem;color:var(--muted);">${s.div||''}</div></th>`;
   });
 
-  // Bygg totalrad – match %
-  let totalsHtml = `<tr style="background:rgba(255,209,0,0.05); border-top:2px solid var(--accent2);"><td style="font-weight:bold; color:var(--accent2); font-size:0.85rem; text-align:left;">MATCH %</td>`;
-  window.compareList.forEach((s, idx) => {
-     const t = totals[idx].totalPts;
-     const pct = maxTotal > 0 ? ((t / maxTotal) * 100).toFixed(2) : '0.00';
-     totalsHtml += `<td style="color:var(--accent2); font-weight:bold; font-size:1.1rem;">
-       ${pct}%<br>
-       <span style="font-size:0.7rem; color:var(--muted); font-weight:normal;">${t.toFixed(4)} p</span>
-     </td>`;
+  let totalsHtml = `<tr style="background:rgba(255,209,0,0.05);border-top:2px solid var(--accent2);"><td style="font-weight:bold;color:var(--accent2);font-size:0.85rem;text-align:left;">MATCH %</td>`;
+  window.compareList.forEach((s,idx) => {
+    const t = totals[idx].totalPts;
+    const pct = maxTotal > 0 ? (t/maxTotal*100).toFixed(2) : '0.00';
+    totalsHtml += `<td style="color:var(--accent2);font-weight:bold;font-size:1.1rem;">${pct}%<br><span style="font-size:0.7rem;color:var(--muted);font-weight:normal;">${t.toFixed(2)} p</span></td>`;
   });
   totalsHtml += `</tr>`;
 
-  // Poängprocent (råpoäng / maxpoäng)
   const hasScorePct = totals.some(t => t.maxPts > 0);
   if (hasScorePct) {
-    const maxSP = Math.max(...totals.map(t => t.maxPts > 0 ? t.rawPts / t.maxPts : 0));
-    totalsHtml += `<tr style="background:rgba(0,230,118,0.04);"><td style="font-weight:bold; color:var(--green); font-size:0.85rem; text-align:left;">POÄNG %</td>`;
+    const maxSP = Math.max(...totals.map(t => t.maxPts > 0 ? t.rawPts/t.maxPts : 0));
+    totalsHtml += `<tr style="background:rgba(0,230,118,0.04);"><td style="font-weight:bold;color:var(--green);font-size:0.85rem;text-align:left;">POÄNG %</td>`;
     totals.forEach(t => {
-      const sp = t.maxPts > 0 ? (t.rawPts / t.maxPts * 100) : 0;
-      const isTop = t.maxPts > 0 && (t.rawPts / t.maxPts) === maxSP;
-      totalsHtml += `<td style="color:${isTop ? 'var(--green)' : 'var(--text)'}; font-weight:${isTop ? 'bold' : 'normal'}; font-size:1.0rem;">
-        ${sp.toFixed(1)}%<br>
-        <span style="font-size:0.7rem; color:var(--muted); font-weight:normal;">${t.rawPts.toFixed(0)} / ${t.maxPts.toFixed(0)} p</span>
-      </td>`;
+      const sp = t.maxPts > 0 ? t.rawPts/t.maxPts*100 : 0;
+      const isTop = t.maxPts > 0 && (t.rawPts/t.maxPts) === maxSP;
+      const col = sp < 85 ? 'var(--accent)' : sp < 90 ? 'var(--accent2)' : 'var(--green)';
+      totalsHtml += `<td style="color:${isTop?col:'var(--text)'};font-weight:${isTop?'bold':'normal'};">${sp.toFixed(1)}%<br><span style="font-size:0.7rem;color:var(--muted);font-weight:normal;">${t.rawPts.toFixed(0)}/${t.maxPts.toFixed(0)} p</span></td>`;
     });
     totalsHtml += `</tr>`;
   }
 
-  // Total tid
   const hasTimes = totals.some(t => t.totalTime > 0);
   if (hasTimes) {
     const minTime = Math.min(...totals.filter(t => t.totalTime > 0).map(t => t.totalTime));
-    totalsHtml += `<tr><td style="font-weight:bold; color:var(--muted); font-size:0.85rem; text-align:left;">TOTAL TID</td>`;
+    totalsHtml += `<tr><td style="font-weight:bold;color:var(--muted);font-size:0.85rem;text-align:left;">TOTAL TID</td>`;
     totals.forEach(t => {
       const isFastest = t.totalTime > 0 && t.totalTime === minTime;
-      totalsHtml += `<td style="color:${isFastest ? 'var(--accent2)' : 'var(--text)'}; font-weight:${isFastest ? 'bold' : 'normal'};">
-        ${t.totalTime > 0 ? t.totalTime.toFixed(2) + 's' : '—'}
-      </td>`;
+      totalsHtml += `<td style="color:${isFastest?'var(--accent2)':'var(--text)'};font-weight:${isFastest?'bold':'normal'};">${t.totalTime > 0 ? t.totalTime.toFixed(2)+'s' : '—'}</td>`;
     });
     totalsHtml += `</tr>`;
   }
 
-  // Totala träffar
-  const hasHits = totals.some(t => t.totalA + t.totalC + t.totalD + t.totalM > 0);
+  const hasHits = totals.some(t => t.totalA+t.totalC+t.totalD+t.totalM > 0);
   if (hasHits) {
-    totalsHtml += `<tr><td style="font-weight:bold; color:var(--muted); font-size:0.85rem; text-align:left;">TRÄFFAR</td>`;
+    totalsHtml += `<tr><td style="font-weight:bold;color:var(--muted);font-size:0.85rem;text-align:left;">TRÄFFAR</td>`;
     totals.forEach(t => {
-      totalsHtml += `<td style="font-size:0.8rem; line-height:1.7;">
-        <span style="color:var(--green)">A${t.totalA}</span> 
-        <span style="color:#aaa">C${t.totalC}</span> 
-        <span style="color:#f90">D${t.totalD}</span> 
-        <span style="color:var(--accent)">M${t.totalM}</span>
-        ${t.totalPT > 0 ? `<span style="color:#c792ea"> P${t.totalPT}</span>` : ''}
-      </td>`;
+      totalsHtml += `<td style="font-size:0.8rem;line-height:1.7;"><span style="color:var(--green)">A${t.totalA}</span> <span style="color:#aaa">C${t.totalC}</span> <span style="color:#f90">D${t.totalD}</span> <span style="color:var(--accent)">M${t.totalM}</span>${t.totalPT>0?` <span style="color:#c792ea">P${t.totalPT}</span>`:''}</td>`;
     });
     totalsHtml += `</tr>`;
   }
+
+  const hiddenCmpCount = window.hiddenCompareStages ? window.hiddenCompareStages.size : 0;
+  const totalHiddenInfo = [
+    hiddenStageCount > 0 ? `${hiddenStageCount} dold${hiddenStageCount>1?'a':''} via skytt` : '',
+    hiddenCmpCount > 0 ? `${hiddenCmpCount} dold${hiddenCmpCount>1?'a':''} i jämförelsen` : '',
+  ].filter(Boolean).join(', ');
+  const hasEdits = Object.keys(window.compareEdits).length > 0;
 
   modal.innerHTML = `
     <div class="cm-inner">
       <div class="sm-header" style="margin-bottom:10px;">
         <div class="sm-title">JÄMFÖR SKYTTAR</div>
-        <button class="sm-close" onclick="closeCompareModal()">&times;</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          ${hasEdits ? `<button onclick="clearAllCmpEdits()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:0.65rem;padding:5px 10px;border-radius:3px;cursor:pointer;letter-spacing:1px;">↺ ÅTERSTÄLL ALLT</button>` : ''}
+          <button class="sm-close" onclick="closeCompareModal()">&times;</button>
+        </div>
       </div>
-      <div style="color:var(--muted); font-size:0.85rem; margin-bottom: 24px; font-style:italic;">
-        Visar endast resultat för stationer där <b>alla</b> de valda skyttarna har skjutit.
+      <div style="color:var(--muted);font-size:0.82rem;margin-bottom:16px;">
+        ${totalHiddenInfo ? `<span style="color:var(--accent);">${totalHiddenInfo}</span> · ` : ''}
+        <span style="font-size:0.75rem;">Klicka stage-namn för att dölja · Redigera poäng/tid i rutorna</span>
       </div>
       <div style="overflow-x:auto;">
         <table class="comp-table">
           <thead><tr>${headersHtml}</tr></thead>
-          <tbody>
-            ${stagesHtml}
-            ${totalsHtml}
-          </tbody>
+          <tbody>${stagesHtml}${totalsHtml}</tbody>
         </table>
       </div>
     </div>
   `;
-  
   modal.classList.add('on');
 }
 
