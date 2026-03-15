@@ -2047,7 +2047,7 @@ function cmpEditRecalc() {
   const col = pct < 85 ? 'var(--accent)' : pct < 90 ? 'var(--accent2)' : 'var(--green)';
   const targetCol = tooMany ? 'var(--accent)' : tooFew ? 'var(--accent2)' : 'var(--green)';
   const targetInfo = maxTargets > 0
-    ? `<span style="color:${targetCol};font-size:0.68rem;">${total}/${maxTargets} mål${tooMany ? ' ⚠ för många' : tooFew ? ' ⚠ för få' : ' ✓'}</span>  `
+    ? `<span style="color:${targetCol};font-size:0.68rem;">${total}/${maxTargets} skott${tooMany ? ' ⚠ för många' : tooFew ? ' ⚠ för få' : ' ✓'}</span>  `
     : '';
   document.getElementById('cmpEditPreview').innerHTML =
     targetInfo +
