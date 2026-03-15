@@ -553,17 +553,17 @@
   <div style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">TRÄFFAR</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
     <div><label style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--green);display:block;margin-bottom:3px;">A</label>
-      <input id="cmpEditA" type="number" min="0" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
+      <input id="cmpEditA" type="text" inputmode="numeric" pattern="[0-9]*" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
     <div><label style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:#aaa;display:block;margin-bottom:3px;">C</label>
-      <input id="cmpEditC" type="number" min="0" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
+      <input id="cmpEditC" type="text" inputmode="numeric" pattern="[0-9]*" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
     <div><label style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:#f90;display:block;margin-bottom:3px;">D</label>
-      <input id="cmpEditD" type="number" min="0" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
+      <input id="cmpEditD" type="text" inputmode="numeric" pattern="[0-9]*" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
     <div><label style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--accent);display:block;margin-bottom:3px;">M</label>
-      <input id="cmpEditM" type="number" min="0" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
+      <input id="cmpEditM" type="text" inputmode="numeric" pattern="[0-9]*" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;" oninput="cmpEditRecalc()"/></div>
   </div>
   <!-- Tid -->
   <div style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--muted);letter-spacing:2px;margin-bottom:6px;">TID (sekunder)</div>
-  <input id="cmpEditTime" type="number" min="0" step="0.01" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;margin-bottom:14px;" oninput="cmpEditRecalc()"/>
+  <input id="cmpEditTime" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:0.9rem;padding:6px 8px;border-radius:3px;outline:none;margin-bottom:14px;" oninput="cmpEditRecalc()"/>
   <!-- Beräknad poäng preview -->
   <div id="cmpEditPreview" style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--accent2);margin-bottom:14px;min-height:18px;"></div>
   <!-- Knappar -->
@@ -620,63 +620,62 @@ addEventListener('DOMContentLoaded', () => {
 // Global variabel för att hålla koll på pågående hämtning
 let fetchAbortController = null;
 
-// ─── FETCH WITH PROXY FALLBACK ────────────────────────────────────────────────
+// ─── FETCH WITH PROXY FALLBACK (racear alla proxies parallellt) ──────────────
 async function fetchHtml(url, onProgress) {
   fetchAbortController = new AbortController();
   const signal = fetchAbortController.signal;
+  const TIMEOUT = 12000;
 
-  for (const mkProxy of PROXIES) {
-    const proxyUrl = mkProxy(url);
-    try {
-      const r = await fetch(proxyUrl, {
-        headers: { 
-          'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
-          'Accept-Encoding': 'gzip, deflate, br',
-        },
-        signal
-      });
+  // Racea alla proxies – returnera den som svarar snabbast med giltig data
+  try {
+    const text = await Promise.any(
+      PROXIES.map(async mkProxy => {
+        const ac = new AbortController();
+        const timer = setTimeout(() => ac.abort(), TIMEOUT);
+        // Kombinera yttre abort-signal med per-proxy timeout
+        signal.addEventListener('abort', () => ac.abort());
+        try {
+          const r = await fetch(mkProxy(url), {
+            headers: {
+              'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+            },
+            signal: ac.signal,
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
 
-      if (!r.ok) continue;
+          // Streama med progress (bara den proxy som vann rapporterar)
+          const contentLength = r.headers.get('content-length');
+          const total = contentLength ? parseInt(contentLength) : 0;
+          const reader = r.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let received = 0, chunks = [];
 
-      const contentLength = r.headers.get('content-length');
-      const total = contentLength ? parseInt(contentLength) : 0;
-      const reader = r.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let received = 0;
-      let chunks = [];
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            received += value.length;
+            if (onProgress) onProgress(received, total);
+          }
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        received += value.length;
-        if (onProgress && total > 0) {
-          onProgress(received, total);
-        } else if (onProgress) {
-          onProgress(received, 0);
+          const buf = new Uint8Array(received);
+          let pos = 0;
+          for (const c of chunks) { buf.set(c, pos); pos += c.length; }
+          const text = decoder.decode(buf);
+
+          if (!text || text.length < 100) throw new Error('empty');
+          if (!text.includes('<tr') && !text.includes('<TR')) throw new Error('no table');
+          return text;
+        } finally {
+          clearTimeout(timer);
         }
-      }
-
-      const allChunks = new Uint8Array(received);
-      let pos = 0;
-      for (const chunk of chunks) {
-        allChunks.set(chunk, pos);
-        pos += chunk.length;
-      }
-      const text = decoder.decode(allChunks);
-
-      if (text && text.length > 100 && (text.includes('<tr') || text.includes('<TR'))) {
-        return text;
-      }
-    } catch(e) {
-      if (e.name === 'AbortError') {
-        if (signal.aborted) return null;
-        fetchAbortController = new AbortController();
-        continue;
-      }
-    }
+      })
+    );
+    return text;
+  } catch(e) {
+    if (signal.aborted) return null;
+    return null;
   }
-  return null;
 }
 
 // Hämtar alla sidor för en URL (SSI paginerar med ?page=N)
@@ -2028,7 +2027,7 @@ function cmpEditRecalc() {
   const c = parseInt(document.getElementById('cmpEditC').value) || 0;
   const d = parseInt(document.getElementById('cmpEditD').value) || 0;
   const m = parseInt(document.getElementById('cmpEditM').value) || 0;
-  const t = parseFloat(document.getElementById('cmpEditTime').value) || 0;
+  const t = parseFloat((document.getElementById('cmpEditTime').value || '').replace(',', '.')) || 0;
   const total = a + c + d + m;
 
   const saveBtn = document.querySelector('#cmpEditPopup button[onclick="applyCmpEdit()"]');
@@ -2048,7 +2047,7 @@ function cmpEditRecalc() {
   const col = pct < 85 ? 'var(--accent)' : pct < 90 ? 'var(--accent2)' : 'var(--green)';
   const targetCol = tooMany ? 'var(--accent)' : tooFew ? 'var(--accent2)' : 'var(--green)';
   const targetInfo = maxTargets > 0
-    ? `<span style="color:${targetCol};font-size:0.68rem;">${total}/${maxTargets} skott${tooMany ? ' ⚠ för många' : tooFew ? ' ⚠ för få' : ' ✓'}</span>  `
+    ? `<span style="color:${targetCol};font-size:0.68rem;">${total}/${maxTargets} mål${tooMany ? ' ⚠ för många' : tooFew ? ' ⚠ för få' : ' ✓'}</span>  `
     : '';
   document.getElementById('cmpEditPreview').innerHTML =
     targetInfo +
@@ -2066,7 +2065,7 @@ function applyCmpEdit() {
   const c = parseInt(document.getElementById('cmpEditC').value) || 0;
   const d = parseInt(document.getElementById('cmpEditD').value) || 0;
   const m = parseInt(document.getElementById('cmpEditM').value) || 0;
-  const t = parseFloat(document.getElementById('cmpEditTime').value);
+  const t = parseFloat((document.getElementById('cmpEditTime').value || '').replace(',', '.'));
   if (maxTargets > 0 && ((a + c + d + m) > maxTargets || (a + c + d + m) < maxTargets)) return;
   if (!window.compareEdits) window.compareEdits = {};
   const pts = (a*5) + (c*3) + (d*1) + (m*-10);
